@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gopls": {
+      "command": "mcp-gopls",
+      "args": [
+        "-workspace",
+        "D:\\Zensoft\\Clientes\\ClinicaInternacional-Agosto2025\\SistemasDeResevas\\Backend\\Golang\\version-1-0"
+      ]
+    }
+  }
+}
