@@ -39,12 +39,13 @@ func main() {
 	// Create use cases
 	createUserUC := user.NewCreateUserUseCase(userRepo)
 	getUserUC := user.NewGetUserUseCase(userRepo)
+	listUsersUC := user.NewListUsersUseCase(userRepo)
 
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo)
 
 	// Create handlers
-	userHandler := handler.NewUserHandler(createUserUC, getUserUC)
+	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC)
 	authHandler := handler.NewAuthHandler(loginUC)
 
 	// Configure router
@@ -58,7 +59,8 @@ func main() {
 	fmt.Println("   POST /api/users             - Crear usuario")
 	fmt.Println("   GET  /api/users?id=<uuid>   - Obtener usuario por ID")
 	fmt.Println("   POST /api/auth/login        - Login (obtener token)")
-	fmt.Println("   GET  /api/users/me         - Obtener perfil (requiere token)")
+	fmt.Println("   GET  /api/users/me          - Obtener perfil (requiere token)")
+	fmt.Println("   GET  /api/users/list        - Listar usuarios (solo admin)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

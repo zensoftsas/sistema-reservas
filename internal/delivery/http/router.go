@@ -31,6 +31,13 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	protectedUserRoutesWithAuth := middleware.AuthMiddleware(protectedUserRoutes)
 	mux.Handle("/api/users/me", protectedUserRoutesWithAuth)
 
+	// Register admin-only routes
+	// Apply middlewares in correct order: Auth first, then Role check
+	listUsersHandler := http.HandlerFunc(userHandler.List)
+	listUsersWithRole := middleware.RequireRole("admin")(listUsersHandler)
+	listUsersWithAuth := middleware.AuthMiddleware(listUsersWithRole)
+	mux.Handle("/api/users/list", listUsersWithAuth)
+
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

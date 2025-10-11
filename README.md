@@ -23,7 +23,7 @@ El proyecto implementa **Clean Architecture** con las siguientes capas:
 - **UUID**: Generación de identificadores únicos
 - **net/http**: Servidor HTTP estándar de Go
 - **JWT (golang-jwt/jwt/v5)**: Autenticación basada en tokens
-- **Middleware**: Logging, Panic Recovery y Autenticación
+- **Middleware**: Logging, Panic Recovery, Autenticación JWT y Autorización por Roles
 
 ## 🚀 Cómo ejecutar
 
@@ -244,6 +244,66 @@ Authorization: Bearer <token>
 - `404 Not Found`: Usuario no encontrado
 - `405 Method Not Allowed`: Método HTTP incorrecto
 
+### Listar Usuarios (Solo Admin)
+
+```
+GET /api/users/list
+```
+
+Obtiene una lista paginada de todos los usuarios del sistema. **Requiere autenticación JWT y rol de administrador.**
+
+**Headers requeridos:**
+```
+Authorization: Bearer <token>
+```
+
+**Query parameters (opcionales):**
+- `limit` (int): Número máximo de usuarios a retornar (default: 20, máximo: 100)
+- `offset` (int): Número de usuarios a saltar para paginación (default: 0)
+
+**Ejemplo:**
+```
+GET /api/users/list?limit=10&offset=0
+```
+
+**Response (200 OK):**
+```json
+{
+  "users": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "admin@clinica.com",
+      "first_name": "Admin",
+      "last_name": "Sistema",
+      "phone": "+51999999999",
+      "role": "admin",
+      "is_active": true,
+      "created_at": "2025-01-15T10:00:00Z"
+    },
+    {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "email": "doctor@clinica.com",
+      "first_name": "Dr. Carlos",
+      "last_name": "Pérez",
+      "phone": "+51987654321",
+      "role": "doctor",
+      "is_active": true,
+      "created_at": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "total": 2,
+  "limit": 20,
+  "offset": 0,
+  "has_more": false
+}
+```
+
+**Errores posibles:**
+- `401 Unauthorized`: Token inválido, expirado o no proporcionado
+- `403 Forbidden`: Usuario no tiene rol de administrador
+- `405 Method Not Allowed`: Método HTTP incorrecto
+- `500 Internal Server Error`: Error del servidor
+
 ## 📊 Modelo de Datos
 
 ### User (Usuario)
@@ -390,6 +450,27 @@ curl http://localhost:8080/api/users/me \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
+### Listar Usuarios (Solo Admin)
+```bash
+# Primero haz login con una cuenta de administrador
+ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@clinica.com","password":"admin123"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+# Listar usuarios (sin parámetros - usa defaults: limit=20, offset=0)
+curl http://localhost:8080/api/users/list \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Listar usuarios con paginación personalizada
+curl "http://localhost:8080/api/users/list?limit=10&offset=0" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+
+# Segunda página (siguiente 10 usuarios)
+curl "http://localhost:8080/api/users/list?limit=10&offset=10" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
 ## 🔐 Seguridad
 
 - **Autenticación JWT**: Tokens con expiración de 24 horas
@@ -441,25 +522,29 @@ El proyecto utiliza **SQLite** como base de datos embebida:
 - [x] Use Case: Crear Usuario
 - [x] Use Case: Obtener Usuario por ID
 - [x] Use Case: Login con JWT
+- [x] Use Case: Listar Usuarios con paginación
 - [x] API REST: Endpoint POST /api/users (Crear usuario)
 - [x] API REST: Endpoint GET /api/users?id=<uuid> (Obtener usuario)
 - [x] API REST: Endpoint POST /api/auth/login (Autenticación)
 - [x] API REST: Endpoint GET /api/users/me (Perfil autenticado)
+- [x] API REST: Endpoint GET /api/users/list (Listar usuarios - solo admin)
 - [x] Validaciones de negocio
 - [x] Health check endpoint
 - [x] Migraciones automáticas de base de datos
 - [x] Middleware de logging (registra todas las requests)
 - [x] Middleware de panic recovery (previene crashes del servidor)
 - [x] Middleware de autenticación JWT (protege endpoints privados)
+- [x] Middleware de autorización por roles (protege endpoints por rol)
 - [x] Sistema de autenticación con tokens JWT (expiración 24h)
+- [x] Sistema de paginación para listados
 
 ### 🔜 Pendiente
-- [ ] Más endpoints CRUD (UPDATE, DELETE, LIST)
+- [ ] Más endpoints CRUD (UPDATE, DELETE para usuarios)
 - [ ] Gestión completa de pacientes
 - [ ] Gestión completa de doctores
 - [ ] Gestión de citas médicas
 - [ ] Gestión de horarios
-- [ ] Middleware de autorización por roles (admin, doctor, patient)
+- [ ] Roles adicionales (doctor, patient) con permisos específicos
 - [ ] Refresh tokens
 - [ ] Configuración externa (JWT secret, database path, port)
 - [ ] Tests unitarios

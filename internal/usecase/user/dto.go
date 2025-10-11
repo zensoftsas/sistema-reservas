@@ -34,3 +34,18 @@ type GetUserResponse struct {
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+// ListUsersRequest represents the input data for listing users with pagination
+type ListUsersRequest struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// ListUsersResponse represents the output data for listing users
+type ListUsersResponse struct {
+	Users   []GetUserResponse `json:"users"`
+	Total   int               `json:"total"`
+	Limit   int               `json:"limit"`
+	Offset  int               `json:"offset"`
+	HasMore bool              `json:"has_more"`
+}
