@@ -13,6 +13,7 @@ import (
 	"version-1-0/internal/usecase/doctor"
 	"version-1-0/internal/usecase/user"
 	"version-1-0/pkg/email"
+	"version-1-0/pkg/reminder"
 
 	"version-1-0/pkg/config"
 )
@@ -44,18 +45,26 @@ func main() {
 		log.Fatalf("Error al ejecutar migraciones: %v", err)
 	}
 	fmt.Println("✅ Migraciones completadas\n")
+	fmt.Println("⏰ Servicio de recordatorios iniciado")
 
 	// Create repository
 	userRepo := sqlite.NewSqliteUserRepository(db)
 
 	// Create email service
 	emailService := email.NewEmailService(
-	cfg.SendGridAPIKey,
-	cfg.SendGridFromEmail,
-	cfg.SendGridFromName,
-)
+		cfg.SendGridAPIKey,
+		cfg.SendGridFromEmail,
+		cfg.SendGridFromName,
+	)
+
 	// Create appointment repository
 	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
+
+	// Create reminder service
+	reminderService := reminder.NewReminderService(appointmentRepo, userRepo, emailService)
+
+	// Start reminder scheduler in background
+	reminderService.Start()
 
 	// Create use cases
 	createUserUC := user.NewCreateUserUseCase(userRepo)

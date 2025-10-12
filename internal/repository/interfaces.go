@@ -101,6 +101,15 @@ type AppointmentRepository interface {
 
 	// Delete removes an appointment from the repository by its ID
 	Delete(ctx context.Context, id string) error
+
+	// FindByScheduledAtRange retrieves appointments within a time range with specific status
+	FindByScheduledAtRange(ctx context.Context, start, end time.Time, status string) ([]*domain.Appointment, error)
+
+	// MarkReminder24hSent marks the 24-hour reminder as sent for an appointment
+	MarkReminder24hSent(ctx context.Context, id string) error
+
+	// MarkReminder1hSent marks the 1-hour reminder as sent for an appointment
+	MarkReminder1hSent(ctx context.Context, id string) error
 }
 
 // ScheduleRepository defines the interface for schedule data persistence operations

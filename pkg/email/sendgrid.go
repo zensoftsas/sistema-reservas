@@ -110,6 +110,32 @@ func (s *EmailService) SendAppointmentCompleted(toEmail, patientName, doctorName
 	return s.sendEmail(toEmail, subject, htmlContent)
 }
 
+// SendAppointmentReminder sends reminder email for upcoming appointment
+func (s *EmailService) SendAppointmentReminder(toEmail, patientName, doctorName, date, time, hoursAhead string) error {
+	subject := "Recordatorio de Cita Médica - Clinica Internacional"
+
+	htmlContent := fmt.Sprintf(`
+		<h2>Recordatorio de Cita Médica</h2>
+		<p>Hola %s,</p>
+		<p>Te recordamos que tienes una cita médica programada en %s.</p>
+		<p><strong>Detalles:</strong></p>
+		<ul>
+			<li>Doctor: %s</li>
+			<li>Fecha: %s</li>
+			<li>Hora: %s</li>
+		</ul>
+		<p><strong>Importante:</strong></p>
+		<ul>
+			<li>Por favor, llega 15 minutos antes</li>
+			<li>Trae tu documento de identidad</li>
+			<li>Si necesitas cancelar, hazlo con anticipación</li>
+		</ul>
+		<p>Te esperamos,<br>Clinica Internacional</p>
+	`, patientName, hoursAhead, doctorName, date, time)
+
+	return s.sendEmail(toEmail, subject, htmlContent)
+}
+
 // sendEmail is the internal method that sends the email via SendGrid
 func (s *EmailService) sendEmail(toEmail, subject, htmlContent string) error {
 	// Check if API key is configured

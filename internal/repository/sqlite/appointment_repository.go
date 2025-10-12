@@ -50,7 +50,7 @@ func (r *SqliteAppointmentRepository) Create(ctx context.Context, appointment *d
 // FindByID retrieves an appointment by its unique identifier
 func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
 		WHERE id = ?
 	`
@@ -69,6 +69,8 @@ func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (
 		&appointment.Notes,
 		&createdAt,
 		&updatedAt,
+		&appointment.Reminder24hSent,
+		&appointment.Reminder1hSent,
 	)
 
 	if err != nil {
@@ -89,7 +91,7 @@ func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (
 // FindByPatientID retrieves all appointments for a specific patient
 func (r *SqliteAppointmentRepository) FindByPatientID(ctx context.Context, patientID string) ([]*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
 		WHERE patient_id = ?
 		ORDER BY scheduled_at DESC
@@ -101,7 +103,7 @@ func (r *SqliteAppointmentRepository) FindByPatientID(ctx context.Context, patie
 // FindByDoctorID retrieves all appointments for a specific doctor
 func (r *SqliteAppointmentRepository) FindByDoctorID(ctx context.Context, doctorID string) ([]*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
 		WHERE doctor_id = ?
 		ORDER BY scheduled_at DESC
@@ -113,7 +115,7 @@ func (r *SqliteAppointmentRepository) FindByDoctorID(ctx context.Context, doctor
 // FindByDoctorAndDate retrieves all appointments for a doctor on a specific date
 func (r *SqliteAppointmentRepository) FindByDoctorAndDate(ctx context.Context, doctorID string, date time.Time) ([]*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
 		WHERE doctor_id = ? AND DATE(scheduled_at) = DATE(?)
 		ORDER BY scheduled_at ASC
@@ -201,6 +203,8 @@ func (r *SqliteAppointmentRepository) queryAppointments(ctx context.Context, que
 			&appointment.Notes,
 			&createdAt,
 			&updatedAt,
+			&appointment.Reminder24hSent,
+			&appointment.Reminder1hSent,
 		)
 
 		if err != nil {
@@ -216,4 +220,68 @@ func (r *SqliteAppointmentRepository) queryAppointments(ctx context.Context, que
 	}
 
 	return appointments, rows.Err()
+}
+
+// FindByScheduledAtRange finds appointments within a time range with specific status
+func (r *SqliteAppointmentRepository) FindByScheduledAtRange(ctx context.Context, start, end time.Time, status string) ([]*domain.Appointment, error) {
+	query := `
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
+		FROM appointments
+		WHERE scheduled_at >= ? AND scheduled_at <= ? AND status = ?
+		ORDER BY scheduled_at ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, start.Format(time.RFC3339), end.Format(time.RFC3339), status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var appointments []*domain.Appointment
+
+	for rows.Next() {
+		var appointment domain.Appointment
+		var scheduledAt, createdAt, updatedAt string
+
+		err := rows.Scan(
+			&appointment.ID,
+			&appointment.PatientID,
+			&appointment.DoctorID,
+			&scheduledAt,
+			&appointment.Duration,
+			&appointment.Status,
+			&appointment.Reason,
+			&appointment.Notes,
+			&createdAt,
+			&updatedAt,
+			&appointment.Reminder24hSent,
+			&appointment.Reminder1hSent,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
+		appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+
+		appointments = append(appointments, &appointment)
+	}
+
+	return appointments, rows.Err()
+}
+
+// MarkReminder24hSent marks the 24-hour reminder as sent
+func (r *SqliteAppointmentRepository) MarkReminder24hSent(ctx context.Context, id string) error {
+	query := `UPDATE appointments SET reminder_24h_sent = 1 WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// MarkReminder1hSent marks the 1-hour reminder as sent
+func (r *SqliteAppointmentRepository) MarkReminder1hSent(ctx context.Context, id string) error {
+	query := `UPDATE appointments SET reminder_1h_sent = 1 WHERE id = ?`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
 }

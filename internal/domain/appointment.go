@@ -31,6 +31,8 @@ type Appointment struct {
 	UpdatedAt          time.Time         `json:"updated_at"`
 	CancelledAt        *time.Time        `json:"cancelled_at,omitempty"`
 	CancellationReason string            `json:"cancellation_reason,omitempty"`
+	Reminder24hSent    bool              `json:"reminder_24h_sent"`
+	Reminder1hSent     bool              `json:"reminder_1h_sent"`
 }
 
 // Validate checks if the Appointment entity has all required fields properly set

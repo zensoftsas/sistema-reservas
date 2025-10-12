@@ -173,6 +173,17 @@ func MigrateDB(db *sql.DB) error {
 		return err
 	}
 
+	// Add reminder fields to appointments table if they don't exist
+	alterAppointmentsReminder24h := `
+	ALTER TABLE appointments ADD COLUMN reminder_24h_sent BOOLEAN DEFAULT 0;
+`
+	db.Exec(alterAppointmentsReminder24h) // Ignore error if column exists
+
+	alterAppointmentsReminder1h := `
+	ALTER TABLE appointments ADD COLUMN reminder_1h_sent BOOLEAN DEFAULT 0;
+`
+	db.Exec(alterAppointmentsReminder1h) // Ignore error if column exists
+
 	// Create indexes for appointments
 	createAppointmentPatientIndex := `CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id);`
 	if _, err := db.Exec(createAppointmentPatientIndex); err != nil {
