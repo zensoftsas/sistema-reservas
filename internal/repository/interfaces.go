@@ -26,6 +26,12 @@ type UserRepository interface {
 
 	// List retrieves a paginated list of users
 	List(ctx context.Context, limit, offset int) ([]*domain.User, error)
+
+	// FindDoctorsBySpecialty retrieves all active doctors filtered by specialty
+	FindDoctorsBySpecialty(ctx context.Context, specialty string) ([]*domain.User, error)
+
+	// GetAllDoctors retrieves all active doctors
+	GetAllDoctors(ctx context.Context) ([]*domain.User, error)
 }
 
 // PatientRepository defines the interface for patient data persistence operations

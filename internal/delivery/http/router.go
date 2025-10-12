@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -76,6 +76,9 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	cancelAppointmentHandler := http.HandlerFunc(appointmentHandler.Cancel)
 	cancelAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(cancelAppointmentHandler)
 	mux.Handle("/api/appointments/cancel", cancelAppointmentWithAuth)
+
+	// Doctor routes - public search endpoint
+	mux.HandleFunc("/api/doctors/search", doctorHandler.Search)
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

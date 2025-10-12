@@ -10,6 +10,7 @@ import (
 	"version-1-0/internal/repository/sqlite"
 	"version-1-0/internal/usecase/appointment"
 	"version-1-0/internal/usecase/auth"
+	"version-1-0/internal/usecase/doctor"
 	"version-1-0/internal/usecase/user"
 
 	"version-1-0/pkg/config"
@@ -60,6 +61,9 @@ func main() {
 	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo)
 	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo)
 	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo)
+	
+	// Create doctor use cases
+	searchDoctorsUC := doctor.NewSearchDoctorsUseCase(userRepo)
 
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
@@ -69,9 +73,11 @@ func main() {
 	authHandler := handler.NewAuthHandler(loginUC)
 	// Create appointment handler
 	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC)
+	// Create doctor handler
+	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -89,6 +95,7 @@ func main() {
 	fmt.Println("   GET    /api/appointments/my      - Mis citas (autenticado)")
 	fmt.Println("   GET    /api/appointments/doctor  - Citas doctor (solo doctor)")
 	fmt.Println("   PUT    /api/appointments/cancel  - Cancelar cita (autenticado)")
+	fmt.Println("   GET    /api/doctors/search?specialty= - Buscar doctores (público)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

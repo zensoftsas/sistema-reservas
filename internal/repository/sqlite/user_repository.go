@@ -277,3 +277,100 @@ func (r *SqliteUserRepository) List(ctx context.Context, limit, offset int) ([]*
 
 	return users, nil
 }
+
+// FindDoctorsBySpecialty retrieves all active doctors filtered by specialty
+func (r *SqliteUserRepository) FindDoctorsBySpecialty(ctx context.Context, specialty string) ([]*domain.User, error) {
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone, u.role, u.is_active, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN doctors d ON u.id = d.user_id
+		WHERE u.role = 'doctor'
+		AND u.is_active = 1
+		AND LOWER(d.specialty) LIKE LOWER(?)
+		ORDER BY u.last_name ASC, u.first_name ASC
+	`
+
+	// Use LIKE with % for flexible matching
+	searchPattern := "%" + specialty + "%"
+
+	rows, err := r.db.QueryContext(ctx, query, searchPattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var user domain.User
+		var createdAt, updatedAt string
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.FirstName,
+			&user.LastName,
+			&user.Phone,
+			&user.Role,
+			&user.IsActive,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		user.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+
+		users = append(users, &user)
+	}
+
+	return users, rows.Err()
+}
+
+// GetAllDoctors retrieves all active doctors that have a complete profile
+func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.User, error) {
+	query := `
+		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone, u.role, u.is_active, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN doctors d ON u.id = d.user_id
+		WHERE u.role = 'doctor' AND u.is_active = 1
+		ORDER BY u.last_name ASC, u.first_name ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var user domain.User
+		var createdAt, updatedAt string
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.FirstName,
+			&user.LastName,
+			&user.Phone,
+			&user.Role,
+			&user.IsActive,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		user.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+
+		users = append(users, &user)
+	}
+
+	return users, rows.Err()
+}
