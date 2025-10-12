@@ -77,6 +77,16 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	cancelAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(cancelAppointmentHandler)
 	mux.Handle("/api/appointments/cancel", cancelAppointmentWithAuth)
 
+	// Confirm appointment - PUT /api/appointments/confirm?id=xxx (doctor or admin only)
+	confirmAppointmentHandler := http.HandlerFunc(appointmentHandler.Confirm)
+	confirmAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(confirmAppointmentHandler)
+	mux.Handle("/api/appointments/confirm", confirmAppointmentWithAuth)
+
+	// Complete appointment - PUT /api/appointments/complete?id=xxx (doctor or admin only)
+	completeAppointmentHandler := http.HandlerFunc(appointmentHandler.Complete)
+	completeAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(completeAppointmentHandler)
+	mux.Handle("/api/appointments/complete", completeAppointmentWithAuth)
+
 	// Doctor routes - public search endpoint
 	mux.HandleFunc("/api/doctors/search", doctorHandler.Search)
 

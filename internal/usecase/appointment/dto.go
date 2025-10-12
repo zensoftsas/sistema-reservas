@@ -39,3 +39,33 @@ type GetAppointmentResponse struct {
 type CancelAppointmentRequest struct {
 	Reason string `json:"reason"` // Cancellation reason
 }
+
+// ConfirmAppointmentResponse represents the response after confirming an appointment
+type ConfirmAppointmentResponse struct {
+	ID              string    `json:"id"`
+	PatientID       string    `json:"patient_id"`
+	DoctorID        string    `json:"doctor_id"`
+	AppointmentDate string    `json:"appointment_date"`
+	AppointmentTime string    `json:"appointment_time"`
+	Status          string    `json:"status"`
+	Reason          string    `json:"reason"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// CompleteAppointmentRequest represents the input for completing an appointment
+type CompleteAppointmentRequest struct {
+	Notes string `json:"notes"` // Medical notes from the consultation
+}
+
+// CompleteAppointmentResponse represents the response after completing an appointment
+type CompleteAppointmentResponse struct {
+	ID              string    `json:"id"`
+	PatientID       string    `json:"patient_id"`
+	DoctorID        string    `json:"doctor_id"`
+	AppointmentDate string    `json:"appointment_date"`
+	AppointmentTime string    `json:"appointment_time"`
+	Status          string    `json:"status"`
+	Reason          string    `json:"reason"`
+	Notes           string    `json:"notes"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}

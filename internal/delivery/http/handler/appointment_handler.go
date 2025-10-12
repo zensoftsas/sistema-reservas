@@ -11,10 +11,12 @@ import (
 
 // AppointmentHandler handles HTTP requests related to appointment operations
 type AppointmentHandler struct {
-	createAppointmentUC *appointment.CreateAppointmentUseCase
-	getByPatientUC      *appointment.GetAppointmentsByPatientUseCase
-	getByDoctorUC       *appointment.GetAppointmentsByDoctorUseCase
-	cancelAppointmentUC *appointment.CancelAppointmentUseCase
+	createAppointmentUC  *appointment.CreateAppointmentUseCase
+	getByPatientUC       *appointment.GetAppointmentsByPatientUseCase
+	getByDoctorUC        *appointment.GetAppointmentsByDoctorUseCase
+	cancelAppointmentUC  *appointment.CancelAppointmentUseCase
+	confirmAppointmentUC *appointment.ConfirmAppointmentUseCase
+	completeAppointmentUC *appointment.CompleteAppointmentUseCase
 }
 
 // NewAppointmentHandler creates a new instance of AppointmentHandler
@@ -23,12 +25,16 @@ func NewAppointmentHandler(
 	getByPatientUC *appointment.GetAppointmentsByPatientUseCase,
 	getByDoctorUC *appointment.GetAppointmentsByDoctorUseCase,
 	cancelAppointmentUC *appointment.CancelAppointmentUseCase,
+	confirmAppointmentUC *appointment.ConfirmAppointmentUseCase,
+	completeAppointmentUC *appointment.CompleteAppointmentUseCase,
 ) *AppointmentHandler {
 	return &AppointmentHandler{
-		createAppointmentUC: createAppointmentUC,
-		getByPatientUC:      getByPatientUC,
-		getByDoctorUC:       getByDoctorUC,
-		cancelAppointmentUC: cancelAppointmentUC,
+		createAppointmentUC:   createAppointmentUC,
+		getByPatientUC:        getByPatientUC,
+		getByDoctorUC:         getByDoctorUC,
+		cancelAppointmentUC:   cancelAppointmentUC,
+		confirmAppointmentUC:  confirmAppointmentUC,
+		completeAppointmentUC: completeAppointmentUC,
 	}
 }
 
@@ -207,4 +213,128 @@ func (h *AppointmentHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response (204 No Content)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Confirm handles the HTTP request for confirming a pending appointment
+// Method: PUT
+// Requires: JWT token (doctor or admin)
+// Query parameter: id (appointment ID)
+// Response: 200 OK with confirmed appointment data
+func (h *AppointmentHandler) Confirm(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is PUT
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get appointment ID from query parameter
+	appointmentID := r.URL.Query().Get("id")
+	if appointmentID == "" {
+		http.Error(w, "Appointment ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get authenticated user info from context
+	authenticatedUserID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	authenticatedUserRole, ok := r.Context().Value(middleware.RoleKey).(string)
+	if !ok {
+		http.Error(w, "Role not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	// Execute use case
+	ctx := context.Background()
+	response, err := h.confirmAppointmentUC.Execute(ctx, appointmentID, authenticatedUserID, authenticatedUserRole)
+	if err != nil {
+		if err.Error() == "appointment not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if err.Error() == "insufficient permissions to confirm this appointment" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "appointment is not in pending status" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Complete handles the HTTP request for completing a confirmed appointment
+// Method: PUT
+// Requires: JWT token (doctor or admin)
+// Query parameter: id (appointment ID)
+// Request body: JSON with completion notes
+// Response: 200 OK with completed appointment data
+func (h *AppointmentHandler) Complete(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is PUT
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get appointment ID from query parameter
+	appointmentID := r.URL.Query().Get("id")
+	if appointmentID == "" {
+		http.Error(w, "Appointment ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get authenticated user info from context
+	authenticatedUserID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	authenticatedUserRole, ok := r.Context().Value(middleware.RoleKey).(string)
+	if !ok {
+		http.Error(w, "Role not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	// Decode request body
+	var req appointment.CompleteAppointmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Execute use case
+	ctx := context.Background()
+	response, err := h.completeAppointmentUC.Execute(ctx, appointmentID, authenticatedUserID, authenticatedUserRole, req)
+	if err != nil {
+		if err.Error() == "appointment not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if err.Error() == "insufficient permissions to complete this appointment" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "appointment is not in confirmed status" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
