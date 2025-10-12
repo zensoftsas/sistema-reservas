@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -54,6 +54,28 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	deleteWithRole := middleware.RequireRole("admin")(deleteHandler)
 	deleteWithAuth := middleware.AuthMiddleware(jwtSecret)(deleteWithRole)
 	mux.Handle("/api/users/delete", deleteWithAuth)
+
+	// Appointment routes - require authentication
+	// Create appointment - POST /api/appointments
+	createAppointmentHandler := http.HandlerFunc(appointmentHandler.Create)
+	createAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(createAppointmentHandler)
+	mux.Handle("/api/appointments", createAppointmentWithAuth)
+
+	// Get my appointments - GET /api/appointments/my
+	getMyAppointmentsHandler := http.HandlerFunc(appointmentHandler.GetMyAppointments)
+	getMyAppointmentsWithAuth := middleware.AuthMiddleware(jwtSecret)(getMyAppointmentsHandler)
+	mux.Handle("/api/appointments/my", getMyAppointmentsWithAuth)
+
+	// Get doctor appointments - GET /api/appointments/doctor (requires doctor role)
+	getDoctorAppointmentsHandler := http.HandlerFunc(appointmentHandler.GetDoctorAppointments)
+	getDoctorAppointmentsWithRole := middleware.RequireRole("doctor")(getDoctorAppointmentsHandler)
+	getDoctorAppointmentsWithAuth := middleware.AuthMiddleware(jwtSecret)(getDoctorAppointmentsWithRole)
+	mux.Handle("/api/appointments/doctor", getDoctorAppointmentsWithAuth)
+
+	// Cancel appointment - PUT /api/appointments/cancel
+	cancelAppointmentHandler := http.HandlerFunc(appointmentHandler.Cancel)
+	cancelAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(cancelAppointmentHandler)
+	mux.Handle("/api/appointments/cancel", cancelAppointmentWithAuth)
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

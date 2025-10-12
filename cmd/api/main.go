@@ -8,8 +8,10 @@ import (
 	httpDelivery "version-1-0/internal/delivery/http"
 	"version-1-0/internal/delivery/http/handler"
 	"version-1-0/internal/repository/sqlite"
+	"version-1-0/internal/usecase/appointment"
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/user"
+
 	"version-1-0/pkg/config"
 )
 
@@ -43,6 +45,8 @@ func main() {
 
 	// Create repository
 	userRepo := sqlite.NewSqliteUserRepository(db)
+	// Create appointment repository
+	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
 
 	// Create use cases
 	createUserUC := user.NewCreateUserUseCase(userRepo)
@@ -51,15 +55,23 @@ func main() {
 	updateUserUC := user.NewUpdateUserUseCase(userRepo)
 	deleteUserUC := user.NewDeleteUserUseCase(userRepo)
 
+	// Create appointment use cases
+	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo)
+	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo)
+	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo)
+	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo)
+
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
 	authHandler := handler.NewAuthHandler(loginUC)
+	// Create appointment handler
+	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -73,6 +85,10 @@ func main() {
 	fmt.Println("   GET  /api/users/list        - Listar usuarios (solo admin)")
 	fmt.Println("   PUT    /api/users/{id}        - Actualizar usuario (admin o mismo user)")
 	fmt.Println("   DELETE /api/users/delete?id=    - Eliminar usuario (solo admin)")
+	fmt.Println("   POST   /api/appointments         - Crear cita (autenticado)")
+	fmt.Println("   GET    /api/appointments/my      - Mis citas (autenticado)")
+	fmt.Println("   GET    /api/appointments/doctor  - Citas doctor (solo doctor)")
+	fmt.Println("   PUT    /api/appointments/cancel  - Cancelar cita (autenticado)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server
