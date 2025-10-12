@@ -7,17 +7,22 @@ import (
 
 	"version-1-0/internal/domain"
 	"version-1-0/internal/repository"
+	"version-1-0/pkg/email"
 )
 
 // CancelAppointmentUseCase handles the business logic for canceling appointments
 type CancelAppointmentUseCase struct {
 	appointmentRepo repository.AppointmentRepository
+	userRepo        repository.UserRepository
+	emailService    *email.EmailService
 }
 
 // NewCancelAppointmentUseCase creates a new instance of CancelAppointmentUseCase
-func NewCancelAppointmentUseCase(appointmentRepo repository.AppointmentRepository) *CancelAppointmentUseCase {
+func NewCancelAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository, emailService *email.EmailService) *CancelAppointmentUseCase {
 	return &CancelAppointmentUseCase{
 		appointmentRepo: appointmentRepo,
+		userRepo:        userRepo,
+		emailService:    emailService,
 	}
 }
 
@@ -60,6 +65,38 @@ func (uc *CancelAppointmentUseCase) Execute(ctx context.Context, appointmentID s
 	err = uc.appointmentRepo.Update(ctx, appointment)
 	if err != nil {
 		return err
+	}
+
+	// Get patient and doctor info for email
+	patient, _ := uc.userRepo.FindByID(ctx, appointment.PatientID)
+	doctor, _ := uc.userRepo.FindByID(ctx, appointment.DoctorID)
+
+	// Send email notifications
+	if uc.emailService != nil && patient != nil && doctor != nil {
+		patientName := patient.FirstName + " " + patient.LastName
+		doctorName := doctor.FirstName + " " + doctor.LastName
+		date := appointment.ScheduledAt.Format("2006-01-02")
+		time := appointment.ScheduledAt.Format("15:04")
+
+		// Notify patient
+		uc.emailService.SendAppointmentCancelled(
+			patient.Email,
+			patientName,
+			doctorName,
+			date,
+			time,
+			req.Reason,
+		)
+
+		// Notify doctor
+		uc.emailService.SendAppointmentCancelled(
+			doctor.Email,
+			doctorName,
+			doctorName,
+			date,
+			time,
+			req.Reason,
+		)
 	}
 
 	return nil

@@ -5,17 +5,22 @@ import (
 	"errors"
 
 	"version-1-0/internal/repository"
+	"version-1-0/pkg/email"
 )
 
 // ConfirmAppointmentUseCase handles the business logic for confirming appointments
 type ConfirmAppointmentUseCase struct {
 	appointmentRepo repository.AppointmentRepository
+	userRepo        repository.UserRepository
+	emailService    *email.EmailService
 }
 
 // NewConfirmAppointmentUseCase creates a new instance of ConfirmAppointmentUseCase
-func NewConfirmAppointmentUseCase(appointmentRepo repository.AppointmentRepository) *ConfirmAppointmentUseCase {
+func NewConfirmAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository, emailService *email.EmailService) *ConfirmAppointmentUseCase {
 	return &ConfirmAppointmentUseCase{
 		appointmentRepo: appointmentRepo,
+		userRepo:        userRepo,
+		emailService:    emailService,
 	}
 }
 
@@ -58,6 +63,23 @@ func (uc *ConfirmAppointmentUseCase) Execute(ctx context.Context, appointmentID 
 		Status:          string(appointment.Status),
 		Reason:          appointment.Reason,
 		UpdatedAt:       appointment.UpdatedAt,
+	}
+
+	// Get patient and doctor info for email
+	patient, _ := uc.userRepo.FindByID(ctx, appointment.PatientID)
+	doctor, _ := uc.userRepo.FindByID(ctx, appointment.DoctorID)
+
+	// Send email notification to patient
+	if uc.emailService != nil && patient != nil && doctor != nil {
+		patientName := patient.FirstName + " " + patient.LastName
+		doctorName := doctor.FirstName + " " + doctor.LastName
+		uc.emailService.SendAppointmentConfirmed(
+			patient.Email,
+			patientName,
+			doctorName,
+			response.AppointmentDate,
+			response.AppointmentTime,
+		)
 	}
 
 	return response, nil

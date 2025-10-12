@@ -10,10 +10,13 @@ import (
 
 // Config holds all application configuration settings
 type Config struct {
-	ServerPort          string
-	DatabasePath        string
-	JWTSecret           string
-	JWTExpirationHours  int
+	ServerPort         string
+	DatabasePath       string
+	JWTSecret          string
+	JWTExpirationHours int
+	SendGridAPIKey     string
+	SendGridFromEmail  string
+	SendGridFromName   string
 }
 
 // LoadConfig loads configuration from environment variables and .env file
@@ -30,6 +33,11 @@ func LoadConfig() *Config {
 	jwtSecret := getEnv("JWT_SECRET", "")
 	jwtExpHours := getEnvAsInt("JWT_EXPIRATION_HOURS", 24)
 
+	// SendGrid configuration (optional)
+	sendGridAPIKey := getEnv("SENDGRID_API_KEY", "")
+	sendGridFromEmail := getEnv("SENDGRID_FROM_EMAIL", "noreply@clinica.com")
+	sendGridFromName := getEnv("SENDGRID_FROM_NAME", "Clinica Internacional")
+
 	// Validate required configuration
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET is required in environment variables")
@@ -41,6 +49,9 @@ func LoadConfig() *Config {
 		DatabasePath:       dbPath,
 		JWTSecret:          jwtSecret,
 		JWTExpirationHours: jwtExpHours,
+		SendGridAPIKey:     sendGridAPIKey,
+		SendGridFromEmail:  sendGridFromEmail,
+		SendGridFromName:   sendGridFromName,
 	}
 }
 

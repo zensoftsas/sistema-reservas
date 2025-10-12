@@ -12,6 +12,7 @@ import (
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/doctor"
 	"version-1-0/internal/usecase/user"
+	"version-1-0/pkg/email"
 
 	"version-1-0/pkg/config"
 )
@@ -46,6 +47,13 @@ func main() {
 
 	// Create repository
 	userRepo := sqlite.NewSqliteUserRepository(db)
+
+	// Create email service
+	emailService := email.NewEmailService(
+	cfg.SendGridAPIKey,
+	cfg.SendGridFromEmail,
+	cfg.SendGridFromName,
+)
 	// Create appointment repository
 	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
 
@@ -57,12 +65,12 @@ func main() {
 	deleteUserUC := user.NewDeleteUserUseCase(userRepo)
 
 	// Create appointment use cases
-	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo)
+	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo, emailService)
 	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo)
 	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo)
-	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo)
-	confirmAppointmentUC := appointment.NewConfirmAppointmentUseCase(appointmentRepo)
-	completeAppointmentUC := appointment.NewCompleteAppointmentUseCase(appointmentRepo)
+	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo, userRepo, emailService)
+	confirmAppointmentUC := appointment.NewConfirmAppointmentUseCase(appointmentRepo, userRepo, emailService)
+	completeAppointmentUC := appointment.NewCompleteAppointmentUseCase(appointmentRepo, userRepo, emailService)
 	getHistoryUC := appointment.NewGetPatientHistoryUseCase(appointmentRepo, userRepo)
 	
 	// Create doctor use cases

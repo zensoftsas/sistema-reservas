@@ -5,17 +5,22 @@ import (
 	"errors"
 
 	"version-1-0/internal/repository"
+	"version-1-0/pkg/email"
 )
 
 // CompleteAppointmentUseCase handles the business logic for completing appointments
 type CompleteAppointmentUseCase struct {
 	appointmentRepo repository.AppointmentRepository
+	userRepo        repository.UserRepository
+	emailService    *email.EmailService
 }
 
 // NewCompleteAppointmentUseCase creates a new instance of CompleteAppointmentUseCase
-func NewCompleteAppointmentUseCase(appointmentRepo repository.AppointmentRepository) *CompleteAppointmentUseCase {
+func NewCompleteAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository, emailService *email.EmailService) *CompleteAppointmentUseCase {
 	return &CompleteAppointmentUseCase{
 		appointmentRepo: appointmentRepo,
+		userRepo:        userRepo,
+		emailService:    emailService,
 	}
 }
 
@@ -59,6 +64,24 @@ func (uc *CompleteAppointmentUseCase) Execute(ctx context.Context, appointmentID
 		Reason:          appointment.Reason,
 		Notes:           appointment.Notes,
 		UpdatedAt:       appointment.UpdatedAt,
+	}
+
+	// Get patient and doctor info for email
+	patient, _ := uc.userRepo.FindByID(ctx, appointment.PatientID)
+	doctor, _ := uc.userRepo.FindByID(ctx, appointment.DoctorID)
+
+	// Send email notification to patient
+	if uc.emailService != nil && patient != nil && doctor != nil {
+		patientName := patient.FirstName + " " + patient.LastName
+		doctorName := doctor.FirstName + " " + doctor.LastName
+		date := appointment.ScheduledAt.Format("2006-01-02")
+
+		uc.emailService.SendAppointmentCompleted(
+			patient.Email,
+			patientName,
+			doctorName,
+			date,
+		)
 	}
 
 	return response, nil

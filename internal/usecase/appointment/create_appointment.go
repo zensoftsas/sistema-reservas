@@ -10,19 +10,22 @@ import (
 
 	"version-1-0/internal/domain"
 	"version-1-0/internal/repository"
+	"version-1-0/pkg/email"
 )
 
 // CreateAppointmentUseCase handles the business logic for creating appointments
 type CreateAppointmentUseCase struct {
 	appointmentRepo repository.AppointmentRepository
 	userRepo        repository.UserRepository
+	emailService    *email.EmailService
 }
 
 // NewCreateAppointmentUseCase creates a new instance of CreateAppointmentUseCase
-func NewCreateAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository) *CreateAppointmentUseCase {
+func NewCreateAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository, emailService *email.EmailService) *CreateAppointmentUseCase {
 	return &CreateAppointmentUseCase{
 		appointmentRepo: appointmentRepo,
 		userRepo:        userRepo,
+		emailService:    emailService,
 	}
 }
 
@@ -134,6 +137,19 @@ func (uc *CreateAppointmentUseCase) Execute(ctx context.Context, patientUserID s
 		Status:          string(appointment.Status),
 		Reason:          appointment.Reason,
 		CreatedAt:       appointment.CreatedAt,
+	}
+
+	// Send email notification to patient
+	if uc.emailService != nil {
+		patientName := patient.FirstName + " " + patient.LastName
+		doctorName := doctor.FirstName + " " + doctor.LastName
+		uc.emailService.SendAppointmentCreated(
+			patient.Email,
+			patientName,
+			doctorName,
+			response.AppointmentDate,
+			response.AppointmentTime,
+		)
 	}
 
 	return response, nil
