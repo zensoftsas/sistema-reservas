@@ -11,12 +11,13 @@ import (
 
 // AppointmentHandler handles HTTP requests related to appointment operations
 type AppointmentHandler struct {
-	createAppointmentUC  *appointment.CreateAppointmentUseCase
-	getByPatientUC       *appointment.GetAppointmentsByPatientUseCase
-	getByDoctorUC        *appointment.GetAppointmentsByDoctorUseCase
-	cancelAppointmentUC  *appointment.CancelAppointmentUseCase
-	confirmAppointmentUC *appointment.ConfirmAppointmentUseCase
+	createAppointmentUC   *appointment.CreateAppointmentUseCase
+	getByPatientUC        *appointment.GetAppointmentsByPatientUseCase
+	getByDoctorUC         *appointment.GetAppointmentsByDoctorUseCase
+	cancelAppointmentUC   *appointment.CancelAppointmentUseCase
+	confirmAppointmentUC  *appointment.ConfirmAppointmentUseCase
 	completeAppointmentUC *appointment.CompleteAppointmentUseCase
+	getHistoryUC          *appointment.GetPatientHistoryUseCase
 }
 
 // NewAppointmentHandler creates a new instance of AppointmentHandler
@@ -27,6 +28,7 @@ func NewAppointmentHandler(
 	cancelAppointmentUC *appointment.CancelAppointmentUseCase,
 	confirmAppointmentUC *appointment.ConfirmAppointmentUseCase,
 	completeAppointmentUC *appointment.CompleteAppointmentUseCase,
+	getHistoryUC *appointment.GetPatientHistoryUseCase,
 ) *AppointmentHandler {
 	return &AppointmentHandler{
 		createAppointmentUC:   createAppointmentUC,
@@ -35,6 +37,7 @@ func NewAppointmentHandler(
 		cancelAppointmentUC:   cancelAppointmentUC,
 		confirmAppointmentUC:  confirmAppointmentUC,
 		completeAppointmentUC: completeAppointmentUC,
+		getHistoryUC:          getHistoryUC,
 	}
 }
 
@@ -327,6 +330,61 @@ func (h *AppointmentHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		}
 		if err.Error() == "appointment is not in confirmed status" {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetHistory handles the HTTP request for getting patient's medical history
+// Method: GET
+// Requires: JWT token
+// Query parameter: patient_id (required)
+// Doctors/admins can see any patient's history, patients only their own
+// Response: 200 OK with array of completed appointments
+func (h *AppointmentHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is GET
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get patient ID from query parameter
+	patientID := r.URL.Query().Get("patient_id")
+	if patientID == "" {
+		http.Error(w, "Patient ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get authenticated user info from context
+	authenticatedUserID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	authenticatedUserRole, ok := r.Context().Value(middleware.RoleKey).(string)
+	if !ok {
+		http.Error(w, "Role not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	// Execute use case
+	ctx := context.Background()
+	response, err := h.getHistoryUC.Execute(ctx, patientID, authenticatedUserID, authenticatedUserRole)
+	if err != nil {
+		if err.Error() == "patient not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if err.Error() == "patients can only view their own medical history" {
+			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)

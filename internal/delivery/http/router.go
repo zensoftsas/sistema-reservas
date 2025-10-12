@@ -87,6 +87,11 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	completeAppointmentWithAuth := middleware.AuthMiddleware(jwtSecret)(completeAppointmentHandler)
 	mux.Handle("/api/appointments/complete", completeAppointmentWithAuth)
 
+	// Get patient medical history - GET /api/appointments/history?patient_id=xxx
+	getHistoryHandler := http.HandlerFunc(appointmentHandler.GetHistory)
+	getHistoryWithAuth := middleware.AuthMiddleware(jwtSecret)(getHistoryHandler)
+	mux.Handle("/api/appointments/history", getHistoryWithAuth)
+
 	// Doctor routes - public search endpoint
 	mux.HandleFunc("/api/doctors/search", doctorHandler.Search)
 

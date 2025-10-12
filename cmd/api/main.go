@@ -63,6 +63,7 @@ func main() {
 	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo)
 	confirmAppointmentUC := appointment.NewConfirmAppointmentUseCase(appointmentRepo)
 	completeAppointmentUC := appointment.NewCompleteAppointmentUseCase(appointmentRepo)
+	getHistoryUC := appointment.NewGetPatientHistoryUseCase(appointmentRepo, userRepo)
 	
 	// Create doctor use cases
 	searchDoctorsUC := doctor.NewSearchDoctorsUseCase(userRepo)
@@ -74,7 +75,7 @@ func main() {
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
 	authHandler := handler.NewAuthHandler(loginUC)
 	// Create appointment handler
-	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC, confirmAppointmentUC, completeAppointmentUC)
+	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC, confirmAppointmentUC, completeAppointmentUC, getHistoryUC)
 	// Create doctor handler
 	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
 
@@ -100,6 +101,7 @@ func main() {
 	fmt.Println("   GET    /api/doctors/search?specialty= - Buscar doctores (público)")
 	fmt.Println("   PUT    /api/appointments/confirm?id= - Confirmar cita (doctor/admin)")
 	fmt.Println("   PUT    /api/appointments/complete?id= - Completar cita (doctor/admin)")
+	fmt.Println("   GET    /api/appointments/history?patient_id= - Historial médico (autenticado)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server
