@@ -749,6 +749,49 @@ El proyecto utiliza **SQLite** como base de datos embebida:
 - [ ] Tests de integración
 - [ ] Documentación OpenAPI/Swagger
 
+---
+
+## 🎨 Frontend
+
+El frontend de este proyecto está en un repositorio separado:
+
+👉 **[Sistema Reservas - Frontend React](https://github.com/zensoftsas/sistema-reservas-frontend)**
+
+---
+
+## 📚 Documentación Adicional
+
+- **[BACKEND_REFERENCE.md](./BACKEND_REFERENCE.md)** - Referencia rápida de endpoints y configuración
+- **[README.md](./README.md)** - Documentación principal (este archivo)
+
+---
+
+## 🏗️ Decisiones de Arquitectura
+
+### Sesiones de Desarrollo:
+- **Sesión 1-2:** Setup inicial + CRUD Users + Auth JWT
+- **Sesión 3:** UPDATE/DELETE Users + Validaciones
+- **Sesión 4:** Sistema de Citas (Create, Get, Cancel)
+- **Sesión 5:** Confirm/Complete Citas + Historial Médico + Búsqueda Doctores
+- **Sesión 6:** Notificaciones Email (SendGrid) + Recordatorios Automáticos
+
+### Tecnologías Elegidas:
+- **Go 1.21+** - Performance y concurrencia
+- **SQLite** - Desarrollo rápido (migrar a PostgreSQL en producción)
+- **Clean Architecture** - Mantenibilidad y testabilidad
+- **JWT** - Autenticación stateless
+- **RBAC** - Control de acceso basado en roles
+- **SendGrid** - Emails transaccionales
+- **Goroutines** - Background workers (recordatorios)
+
+### Problemas Resueltos:
+- Búsqueda con acentos → Primeras 6 letras
+- Domain modeling → ScheduledAt en lugar de date/time separados
+- Email anti-spam → Single Sender Verification
+- Recordatorios duplicados → Campos reminder_24h_sent, reminder_1h_sent
+
+---
+
 ## 🤝 Contribuir
 
 1. Fork el proyecto
