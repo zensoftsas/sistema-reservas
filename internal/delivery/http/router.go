@@ -33,11 +33,27 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 
 	// Register admin-only routes
 	// List users - requires admin role
-	// Apply middlewares in correct order: Auth first, then Role check
 	listUsersHandler := http.HandlerFunc(userHandler.List)
-	listUsersWithRole := middleware.RequireRole("admin")(listUsersHandler)
-	listUsersWithAuth := middleware.AuthMiddleware(jwtSecret)(listUsersWithRole)
-	mux.Handle("/api/users/list", listUsersWithAuth)
+	listUsersWithAuth := middleware.AuthMiddleware(jwtSecret)(listUsersHandler)
+	listUsersWithRole := middleware.RequireRole("admin")(listUsersWithAuth)
+	mux.Handle("/api/users/list", listUsersWithRole)
+
+	// Update user - requires authentication (admin can update anyone, users can update themselves)
+	updateUserHandler := http.HandlerFunc(userHandler.Update)
+	updateUserWithAuth := middleware.AuthMiddleware(jwtSecret)(updateUserHandler)
+	mux.Handle("/api/users/", updateUserWithAuth)
+
+	// Delete user endpoint will use query param: /api/users/delete?id=xxx
+	deleteHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/users/delete" {
+			userHandler.Delete(w, r)
+		} else {
+			http.Error(w, "Not found", http.StatusNotFound)
+		}
+	})
+	deleteWithRole := middleware.RequireRole("admin")(deleteHandler)
+	deleteWithAuth := middleware.AuthMiddleware(jwtSecret)(deleteWithRole)
+	mux.Handle("/api/users/delete", deleteWithAuth)
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

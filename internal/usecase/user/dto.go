@@ -49,3 +49,23 @@ type ListUsersResponse struct {
 	Offset  int               `json:"offset"`
 	HasMore bool              `json:"has_more"`
 }
+
+// UpdateUserRequest represents the input data for updating a user
+type UpdateUserRequest struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Phone     string `json:"phone"`
+	Password  string `json:"password,omitempty"` // Optional - only if user wants to change password
+}
+
+// UpdateUserResponse represents the output data after successfully updating a user
+type UpdateUserResponse struct {
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Phone     string    `json:"phone"`
+	Role      string    `json:"role"`
+	IsActive  bool      `json:"is_active"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

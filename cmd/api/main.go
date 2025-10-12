@@ -48,12 +48,14 @@ func main() {
 	createUserUC := user.NewCreateUserUseCase(userRepo)
 	getUserUC := user.NewGetUserUseCase(userRepo)
 	listUsersUC := user.NewListUsersUseCase(userRepo)
+	updateUserUC := user.NewUpdateUserUseCase(userRepo)
+	deleteUserUC := user.NewDeleteUserUseCase(userRepo)
 
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
 
 	// Create handlers
-	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC)
+	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
 	authHandler := handler.NewAuthHandler(loginUC)
 
 	// Configure router
@@ -69,6 +71,8 @@ func main() {
 	fmt.Println("   POST /api/auth/login        - Login (obtener token)")
 	fmt.Println("   GET  /api/users/me          - Obtener perfil (requiere token)")
 	fmt.Println("   GET  /api/users/list        - Listar usuarios (solo admin)")
+	fmt.Println("   PUT    /api/users/{id}        - Actualizar usuario (admin o mismo user)")
+	fmt.Println("   DELETE /api/users/delete?id=    - Eliminar usuario (solo admin)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

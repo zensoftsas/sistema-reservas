@@ -189,11 +189,16 @@ func (r *SqliteUserRepository) Update(ctx context.Context, user *domain.User) er
 	return nil
 }
 
-// Delete removes a user from the database by their ID
+// Delete performs a soft delete by marking the user as inactive
 func (r *SqliteUserRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM users WHERE id = ?`
+	query := `
+		UPDATE users
+		SET is_active = 0,
+		    updated_at = ?
+		WHERE id = ?
+	`
 
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.ExecContext(ctx, query, time.Now().Format(time.RFC3339), id)
 	if err != nil {
 		return err
 	}

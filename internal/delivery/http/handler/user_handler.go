@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"version-1-0/internal/delivery/http/middleware"
 	"version-1-0/internal/usecase/user"
@@ -15,14 +16,24 @@ type UserHandler struct {
 	createUserUC *user.CreateUserUseCase
 	getUserUC    *user.GetUserUseCase
 	listUsersUC  *user.ListUsersUseCase
+	updateUserUC *user.UpdateUserUseCase
+	deleteUserUC *user.DeleteUserUseCase
 }
 
 // NewUserHandler creates a new instance of UserHandler
-func NewUserHandler(createUserUC *user.CreateUserUseCase, getUserUC *user.GetUserUseCase, listUsersUC *user.ListUsersUseCase) *UserHandler {
+func NewUserHandler(
+	createUserUC *user.CreateUserUseCase,
+	getUserUC *user.GetUserUseCase,
+	listUsersUC *user.ListUsersUseCase,
+	updateUserUC *user.UpdateUserUseCase,
+	deleteUserUC *user.DeleteUserUseCase,
+) *UserHandler {
 	return &UserHandler{
 		createUserUC: createUserUC,
 		getUserUC:    getUserUC,
 		listUsersUC:  listUsersUC,
+		updateUserUC: updateUserUC,
+		deleteUserUC: deleteUserUC,
 	}
 }
 
@@ -177,4 +188,126 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+// Update handles the HTTP request for updating a user
+// Method: PUT
+// Requires: JWT token (admin can update anyone, users can update themselves)
+// URL parameter: id in path
+// Response: 200 OK with updated user data
+func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is PUT
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from URL path (format: /api/users/{id})
+	path := r.URL.Path
+	userID := strings.TrimPrefix(path, "/api/users/")
+	if userID == "" || userID == path {
+		http.Error(w, "User ID is required in path", http.StatusBadRequest)
+		return
+	}
+
+	// Get authenticated user info from context
+	authenticatedUserID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	authenticatedUserRole, ok := r.Context().Value(middleware.RoleKey).(string)
+	if !ok {
+		http.Error(w, "Role not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	// Decode request body
+	var req user.UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Execute use case
+	ctx := context.Background()
+	response, err := h.updateUserUC.Execute(ctx, userID, authenticatedUserID, authenticatedUserRole, req)
+	if err != nil {
+		if err.Error() == "insufficient permissions to update this user" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "user not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Delete handles the HTTP request for deleting (deactivating) a user
+// Method: DELETE
+// Requires: JWT token with admin role
+// URL parameter: id in path
+// Response: 204 No Content on success
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is DELETE
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from query parameter
+	userID := r.URL.Query().Get("id")
+	if userID == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get authenticated user info from context
+	authenticatedUserID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	authenticatedUserRole, ok := r.Context().Value(middleware.RoleKey).(string)
+	if !ok {
+		http.Error(w, "Role not found in context", http.StatusUnauthorized)
+		return
+	}
+
+	// Execute use case
+	ctx := context.Background()
+	err := h.deleteUserUC.Execute(ctx, userID, authenticatedUserID, authenticatedUserRole)
+	if err != nil {
+		if err.Error() == "only administrators can delete users" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "cannot delete your own account" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "user not found" {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if err.Error() == "user is already inactive" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response (204 No Content)
+	w.WriteHeader(http.StatusNoContent)
 }
