@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -28,14 +28,15 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 
 	// Register protected user routes
 	protectedUserRoutes := http.HandlerFunc(userHandler.GetMe)
-	protectedUserRoutesWithAuth := middleware.AuthMiddleware(protectedUserRoutes)
+	protectedUserRoutesWithAuth := middleware.AuthMiddleware(jwtSecret)(protectedUserRoutes)
 	mux.Handle("/api/users/me", protectedUserRoutesWithAuth)
 
 	// Register admin-only routes
+	// List users - requires admin role
 	// Apply middlewares in correct order: Auth first, then Role check
 	listUsersHandler := http.HandlerFunc(userHandler.List)
 	listUsersWithRole := middleware.RequireRole("admin")(listUsersHandler)
-	listUsersWithAuth := middleware.AuthMiddleware(listUsersWithRole)
+	listUsersWithAuth := middleware.AuthMiddleware(jwtSecret)(listUsersWithRole)
 	mux.Handle("/api/users/list", listUsersWithAuth)
 
 	// Register health check route

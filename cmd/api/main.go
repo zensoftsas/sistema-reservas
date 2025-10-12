@@ -10,15 +10,23 @@ import (
 	"version-1-0/internal/repository/sqlite"
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/user"
+	"version-1-0/pkg/config"
 )
 
 func main() {
 	fmt.Println("🏥 Sistema de Reservas - Clínica Internacional - API Server")
 	fmt.Println("=============================================================\n")
 
+	// Load configuration
+	cfg := config.LoadConfig()
+	fmt.Printf("🔧 Configuración cargada:\n")
+	fmt.Printf("   Puerto: %s\n", cfg.ServerPort)
+	fmt.Printf("   Base de datos: %s\n", cfg.DatabasePath)
+	fmt.Printf("   JWT Expiration: %d horas\n\n", cfg.JWTExpirationHours)
+
 	// Initialize SQLite database
 	fmt.Println("📦 Inicializando base de datos...")
-	db, err := sqlite.InitDB("./clinica.db")
+	db, err := sqlite.InitDB(cfg.DatabasePath)
 	if err != nil {
 		log.Fatalf("Error al inicializar la base de datos: %v", err)
 	}
@@ -42,18 +50,18 @@ func main() {
 	listUsersUC := user.NewListUsersUseCase(userRepo)
 
 	// Create auth use cases
-	loginUC := auth.NewLoginUseCase(userRepo)
+	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC)
 	authHandler := handler.NewAuthHandler(loginUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
-	port := ":8080"
-	fmt.Printf("🚀 Servidor HTTP iniciado en http://localhost%s\n", port)
+	port := ":" + cfg.ServerPort
+	fmt.Printf("🚀 Servidor HTTP iniciado en http://localhost:%s\n", cfg.ServerPort)
 	fmt.Println("📍 Endpoints disponibles:")
 	fmt.Println("   GET  /                      - Health check")
 	fmt.Println("   POST /api/users             - Crear usuario")

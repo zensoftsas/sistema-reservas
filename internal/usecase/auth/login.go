@@ -12,18 +12,19 @@ import (
 	"version-1-0/internal/repository"
 )
 
-// JWT secret key - TEMPORARY: should be moved to configuration in production
-const jwtSecret = "tu-super-secret-key-cambiar-en-produccion"
-
 // LoginUseCase handles the business logic for user authentication
 type LoginUseCase struct {
-	userRepo repository.UserRepository
+	userRepo           repository.UserRepository
+	jwtSecret          string
+	jwtExpirationHours int
 }
 
 // NewLoginUseCase creates a new instance of LoginUseCase
-func NewLoginUseCase(userRepo repository.UserRepository) *LoginUseCase {
+func NewLoginUseCase(userRepo repository.UserRepository, jwtSecret string, jwtExpirationHours int) *LoginUseCase {
 	return &LoginUseCase{
-		userRepo: userRepo,
+		userRepo:           userRepo,
+		jwtSecret:          jwtSecret,
+		jwtExpirationHours: jwtExpirationHours,
 	}
 }
 
@@ -60,7 +61,7 @@ func (uc *LoginUseCase) Execute(ctx context.Context, req LoginRequest) (*LoginRe
 	}
 
 	// Generate JWT token
-	expiresAt := time.Now().Add(24 * time.Hour)
+	expiresAt := time.Now().Add(time.Duration(uc.jwtExpirationHours) * time.Hour)
 
 	// Create JWT claims
 	claims := jwt.MapClaims{
@@ -74,7 +75,7 @@ func (uc *LoginUseCase) Execute(ctx context.Context, req LoginRequest) (*LoginRe
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign token with secret key
-	tokenString, err := token.SignedString([]byte(jwtSecret))
+	tokenString, err := token.SignedString([]byte(uc.jwtSecret))
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}

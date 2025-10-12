@@ -9,10 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// JWT secret key - TEMPORARY: should be moved to configuration in production
-// Must match the secret used in login.go
-const jwtSecret = "tu-super-secret-key-cambiar-en-produccion"
-
 // ContextKey is a custom type for context keys to avoid collisions
 type ContextKey string
 
@@ -24,7 +20,8 @@ const RoleKey ContextKey = "user_role"
 
 // AuthMiddleware validates JWT tokens and adds user information to the request context
 // Requires a valid Bearer token in the Authorization header
-func AuthMiddleware(next http.Handler) http.Handler {
+func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Read Authorization header
 		authHeader := r.Header.Get("Authorization")
@@ -82,6 +79,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, RoleKey, userRole)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+	}
 }
 
 // RequireRole returns a middleware that checks if the authenticated user has the required role

@@ -1,0 +1,14 @@
+# Binaries
+*.exe
+*.dll
+*.so
+
+# Test files
+*.test
+*.out
+
+# Database files
+*.db
+
+# Environment variables
+.env
