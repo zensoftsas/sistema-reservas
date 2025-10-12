@@ -28,22 +28,26 @@ El proyecto implementa **Clean Architecture** con las siguientes capas:
 ## 🚀 Cómo ejecutar
 
 ### Prerrequisitos
+
 - Go 1.24.3 o superior instalado
 
 ### Instalación
 
 1. Clonar el repositorio
+
 ```bash
 git clone <repository-url>
 cd version-1-0
 ```
 
 2. Descargar dependencias
+
 ```bash
 go mod download
 ```
 
 3. Ejecutar el servidor
+
 ```bash
 go run cmd/api/main.go
 ```
@@ -96,17 +100,21 @@ version-1-0/
 ## 🔌 API Endpoints
 
 ### Health Check
+
 ```
 GET /
 ```
+
 Verifica que el servidor esté funcionando.
 
 **Respuesta:**
+
 ```
 Sistema de Reservas - API Running
 ```
 
 ### Crear Usuario
+
 ```
 POST /api/users
 ```
@@ -114,6 +122,7 @@ POST /api/users
 Crea un nuevo usuario en el sistema.
 
 **Request Body:**
+
 ```json
 {
   "email": "doctor@clinica.com",
@@ -128,6 +137,7 @@ Crea un nuevo usuario en el sistema.
 **Roles válidos:** `admin`, `doctor`, `patient`
 
 **Response (201 Created):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -140,6 +150,7 @@ Crea un nuevo usuario en el sistema.
 ```
 
 **Errores posibles:**
+
 - `400 Bad Request`: Datos inválidos o email ya existe
 - `405 Method Not Allowed`: Método HTTP incorrecto
 
@@ -152,9 +163,11 @@ GET /api/users?id=<uuid>
 Obtiene la información de un usuario específico por su ID.
 
 **Query Parameters:**
+
 - `id` (required): UUID del usuario
 
 **Response (200 OK):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -169,6 +182,7 @@ Obtiene la información de un usuario específico por su ID.
 ```
 
 **Errores posibles:**
+
 - `400 Bad Request`: ID no proporcionado o inválido
 - `404 Not Found`: Usuario no encontrado
 - `405 Method Not Allowed`: Método HTTP incorrecto
@@ -182,6 +196,7 @@ POST /api/auth/login
 Autentica un usuario y devuelve un token JWT para acceder a endpoints protegidos.
 
 **Request Body:**
+
 ```json
 {
   "email": "doctor@clinica.com",
@@ -190,6 +205,7 @@ Autentica un usuario y devuelve un token JWT para acceder a endpoints protegidos
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -208,6 +224,7 @@ Autentica un usuario y devuelve un token JWT para acceder a endpoints protegidos
 ```
 
 **Errores posibles:**
+
 - `400 Bad Request`: Email o password faltantes
 - `401 Unauthorized`: Credenciales inválidas o usuario inactivo
 - `405 Method Not Allowed`: Método HTTP incorrecto
@@ -221,11 +238,13 @@ GET /api/users/me
 Obtiene la información del usuario autenticado. **Requiere autenticación JWT.**
 
 **Headers requeridos:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -240,6 +259,7 @@ Authorization: Bearer <token>
 ```
 
 **Errores posibles:**
+
 - `401 Unauthorized`: Token inválido, expirado o no proporcionado
 - `404 Not Found`: Usuario no encontrado
 - `405 Method Not Allowed`: Método HTTP incorrecto
@@ -253,20 +273,24 @@ GET /api/users/list
 Obtiene una lista paginada de todos los usuarios del sistema. **Requiere autenticación JWT y rol de administrador.**
 
 **Headers requeridos:**
+
 ```
 Authorization: Bearer <token>
 ```
 
 **Query parameters (opcionales):**
+
 - `limit` (int): Número máximo de usuarios a retornar (default: 20, máximo: 100)
 - `offset` (int): Número de usuarios a saltar para paginación (default: 0)
 
 **Ejemplo:**
+
 ```
 GET /api/users/list?limit=10&offset=0
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "users": [
@@ -299,14 +323,170 @@ GET /api/users/list?limit=10&offset=0
 ```
 
 **Errores posibles:**
+
 - `401 Unauthorized`: Token inválido, expirado o no proporcionado
 - `403 Forbidden`: Usuario no tiene rol de administrador
 - `405 Method Not Allowed`: Método HTTP incorrecto
 - `500 Internal Server Error`: Error del servidor
 
+## 🏥 Citas Médicas (Appointments)
+
+### Crear Cita
+
+```
+POST /api/appointments
+```
+
+Crea una nueva cita médica. **Requiere autenticación JWT.** El paciente es identificado automáticamente desde el token.
+
+**Headers requeridos:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Request Body:**
+
+```json
+{
+  "doctor_id": "550e8400-e29b-41d4-a716-446655440000",
+  "appointment_date": "2025-01-20",
+  "appointment_time": "10:30",
+  "reason": "Consulta general y revisión de exámenes"
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "770e8400-e29b-41d4-a716-446655440003",
+  "patient_id": "660e8400-e29b-41d4-a716-446655440002",
+  "doctor_id": "550e8400-e29b-41d4-a716-446655440000",
+  "appointment_date": "2025-01-20",
+  "appointment_time": "10:30",
+  "status": "pending",
+  "reason": "Consulta general y revisión de exámenes",
+  "created_at": "2025-01-15T12:00:00Z"
+}
+```
+
+**Errores posibles:**
+
+- `400 Bad Request`: Datos inválidos (doctor no existe, fecha/hora inválida, doctor no disponible)
+- `401 Unauthorized`: Token inválido o no proporcionado
+
+### Obtener Mis Citas (Paciente)
+
+```
+GET /api/appointments/my
+```
+
+Obtiene todas las citas del paciente autenticado. **Requiere autenticación JWT.**
+
+**Headers requeridos:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "id": "770e8400-e29b-41d4-a716-446655440003",
+    "patient_id": "660e8400-e29b-41d4-a716-446655440002",
+    "doctor_id": "550e8400-e29b-41d4-a716-446655440000",
+    "appointment_date": "2025-01-20",
+    "appointment_time": "10:30",
+    "status": "pending",
+    "reason": "Consulta general",
+    "notes": "",
+    "created_at": "2025-01-15T12:00:00Z"
+  }
+]
+```
+
+**Errores posibles:**
+
+- `401 Unauthorized`: Token inválido o no proporcionado
+- `500 Internal Server Error`: Error del servidor
+
+### Obtener Citas del Doctor
+
+```
+GET /api/appointments/doctor
+```
+
+Obtiene todas las citas del doctor autenticado. **Requiere autenticación JWT y rol de doctor.**
+
+**Headers requeridos:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "id": "770e8400-e29b-41d4-a716-446655440003",
+    "patient_id": "660e8400-e29b-41d4-a716-446655440002",
+    "doctor_id": "550e8400-e29b-41d4-a716-446655440000",
+    "appointment_date": "2025-01-20",
+    "appointment_time": "10:30",
+    "status": "pending",
+    "reason": "Consulta general",
+    "notes": "",
+    "created_at": "2025-01-15T12:00:00Z"
+  }
+]
+```
+
+**Errores posibles:**
+
+- `401 Unauthorized`: Token inválido o no proporcionado
+- `403 Forbidden`: Usuario no tiene rol de doctor
+- `500 Internal Server Error`: Error del servidor
+
+### Cancelar Cita
+
+```
+PUT /api/appointments/cancel
+```
+
+Cancela una cita existente. **Requiere autenticación JWT.** Solo el paciente, el doctor involucrado o un admin pueden cancelar una cita.
+
+**Headers requeridos:**
+
+```
+Authorization: Bearer <token>
+```
+
+**Request Body:**
+
+```json
+{
+  "appointment_id": "770e8400-e29b-41d4-a716-446655440003",
+  "reason": "Tengo un compromiso urgente"
+}
+```
+
+**Response (204 No Content)**
+
+**Errores posibles:**
+
+- `400 Bad Request`: Cita ya cancelada o datos inválidos
+- `401 Unauthorized`: Token inválido o no proporcionado
+- `403 Forbidden`: Usuario no tiene permisos para cancelar esta cita
+- `404 Not Found`: Cita no encontrada
+
 ## 📊 Modelo de Datos
 
 ### User (Usuario)
+
 - `id` (UUID): Identificador único
 - `email` (string): Email único
 - `password_hash` (string): Hash del password
@@ -318,6 +498,7 @@ GET /api/users/list?limit=10&offset=0
 - `created_at`, `updated_at` (timestamp)
 
 ### Patient (Paciente)
+
 - `id` (UUID): Identificador único
 - `user_id` (UUID): Referencia al usuario
 - `birthdate` (date): Fecha de nacimiento
@@ -331,6 +512,7 @@ GET /api/users/list?limit=10&offset=0
 - `created_at`, `updated_at` (timestamp)
 
 ### Doctor (Doctor)
+
 - `id` (UUID): Identificador único
 - `user_id` (UUID): Referencia al usuario
 - `specialty` (string): Especialidad médica
@@ -343,6 +525,7 @@ GET /api/users/list?limit=10&offset=0
 - `created_at`, `updated_at` (timestamp)
 
 ### Appointment (Cita)
+
 - `id` (UUID): Identificador único
 - `patient_id` (UUID): Referencia al paciente
 - `doctor_id` (UUID): Referencia al doctor
@@ -356,6 +539,7 @@ GET /api/users/list?limit=10&offset=0
 - `created_at`, `updated_at` (timestamp)
 
 ### Schedule (Horario)
+
 - `id` (UUID): Identificador único
 - `doctor_id` (UUID): Referencia al doctor
 - `day_of_week` (enum): monday | tuesday | wednesday | thursday | friday | saturday | sunday
@@ -368,11 +552,13 @@ GET /api/users/list?limit=10&offset=0
 ## 🧪 Ejemplos de uso con curl
 
 ### Health Check
+
 ```bash
 curl http://localhost:8080/
 ```
 
 ### Crear un Doctor
+
 ```bash
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
@@ -387,6 +573,7 @@ curl -X POST http://localhost:8080/api/users \
 ```
 
 ### Crear un Paciente
+
 ```bash
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
@@ -401,6 +588,7 @@ curl -X POST http://localhost:8080/api/users \
 ```
 
 ### Crear un Administrador
+
 ```bash
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
@@ -415,6 +603,7 @@ curl -X POST http://localhost:8080/api/users \
 ```
 
 ### Obtener Usuario por ID
+
 ```bash
 # Reemplaza <user-id> con el UUID del usuario
 curl http://localhost:8080/api/users?id=<user-id>
@@ -424,6 +613,7 @@ curl http://localhost:8080/api/users?id=550e8400-e29b-41d4-a716-446655440000
 ```
 
 ### Login
+
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
@@ -434,6 +624,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 ```
 
 ### Obtener Perfil del Usuario Autenticado
+
 ```bash
 # Primero haz login para obtener el token
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
@@ -451,6 +642,7 @@ curl http://localhost:8080/api/users/me \
 ```
 
 ### Listar Usuarios (Solo Admin)
+
 ```bash
 # Primero haz login con una cuenta de administrador
 ADMIN_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
@@ -485,6 +677,7 @@ curl "http://localhost:8080/api/users/list?limit=10&offset=10" \
 ## 📝 Validaciones
 
 ### Usuario
+
 - Email: requerido y único
 - Password: mínimo 8 caracteres
 - FirstName, LastName: requeridos
@@ -492,6 +685,7 @@ curl "http://localhost:8080/api/users/list?limit=10&offset=10" \
 - Role: debe ser uno de: admin, doctor, patient
 
 ### Citas
+
 - No se pueden agendar en el pasado
 - Duración debe ser mayor a 0
 - Cancelación requiere 24 horas de anticipación
@@ -499,6 +693,7 @@ curl "http://localhost:8080/api/users/list?limit=10&offset=10" \
 - Solo se pueden completar citas en estado "confirmed"
 
 ### Horarios
+
 - StartTime debe ser antes de EndTime
 - Formato de tiempo: "HH:MM" (00:00 - 23:59)
 - SlotDuration debe ser mayor a 0
@@ -506,6 +701,7 @@ curl "http://localhost:8080/api/users/list?limit=10&offset=10" \
 ## 🗄️ Base de Datos
 
 El proyecto utiliza **SQLite** como base de datos embebida:
+
 - Archivo: `clinica.db` (se crea automáticamente)
 - Las migraciones se ejecutan al iniciar el servidor
 - Soporte para FOREIGN KEY con CASCADE DELETE
@@ -516,6 +712,7 @@ El proyecto utiliza **SQLite** como base de datos embebida:
 **Versión actual:** 1.0.0-alpha
 
 ### ✅ Implementado
+
 - [x] Clean Architecture con capas separadas
 - [x] Entidades de dominio (User, Patient, Doctor, Appointment, Schedule)
 - [x] Repositorio SQLite para Users
@@ -539,6 +736,7 @@ El proyecto utiliza **SQLite** como base de datos embebida:
 - [x] Sistema de paginación para listados
 
 ### 🔜 Pendiente
+
 - [ ] Más endpoints CRUD (UPDATE, DELETE para usuarios)
 - [ ] Gestión completa de pacientes
 - [ ] Gestión completa de doctores
@@ -561,12 +759,12 @@ El proyecto utiliza **SQLite** como base de datos embebida:
 
 ## 📄 Licencia
 
-Este proyecto es propiedad de Clínica Internacional.
+Este proyecto es propiedad de Zensoft.
 
 ## 👥 Autores
 
-- **Equipo de Desarrollo** - Clínica Internacional
+- **Equipo de Desarrollo** - Zensoft
 
 ## 📞 Contacto
 
-Para preguntas o soporte, contactar al equipo de desarrollo de Clínica Internacional.
+Para preguntas o soporte, contactar al equipo de desarrollo de Zensoft.
