@@ -128,6 +128,14 @@ version-1-0/
 - `GET    /api/schedules/doctor/{id}`                 - Ver horarios de doctor (público)
 - `DELETE /api/schedules/{id}`                        - Eliminar horario (admin)
 
+**Analytics & Dashboard:**
+- `GET    /api/analytics/dashboard`                   - Resumen del dashboard (admin)
+- `GET    /api/analytics/revenue`                     - Estadísticas de ingresos (admin)
+- `GET    /api/analytics/top-doctors?limit=10`        - Top doctores (admin)
+- `GET    /api/analytics/top-services?limit=10`       - Top servicios (admin)
+
+**Total:** 29 endpoints (25 previos + 4 analytics)
+
 ---
 
 ### Health Check
@@ -993,6 +1001,302 @@ Retorna slots con disponibilidad real
 
 ---
 
+## 📊 Sistema de Analytics y Dashboard
+
+### Descripción
+
+El sistema de analytics proporciona estadísticas y métricas del negocio para administradores, incluyendo:
+- Resumen general del dashboard con KPIs principales
+- Análisis de ingresos por servicio
+- Rankings de doctores y servicios más utilizados
+- Tasas de cancelación y métricas de rendimiento
+
+**Acceso:** Solo administradores (requiere rol `admin`)
+
+### Endpoints de Analytics
+
+#### 1. Dashboard Summary
+
+**Obtiene resumen general con métricas clave:**
+
+```bash
+GET /api/analytics/dashboard
+Authorization: Bearer {admin-token}
+
+Response (200):
+{
+  "total_appointments": 150,
+  "pending_appointments": 20,
+  "confirmed_appointments": 45,
+  "completed_appointments": 75,
+  "cancelled_appointments": 10,
+  "total_patients": 80,
+  "total_doctors": 12,
+  "total_revenue": 12500.50,
+  "cancellation_rate": 6.67  // Porcentaje
+}
+```
+
+**Métricas incluidas:**
+- Total de citas y su distribución por estado
+- Total de pacientes y doctores activos
+- Ingresos totales (suma de citas completadas)
+- Tasa de cancelación en porcentaje
+
+#### 2. Revenue Stats
+
+**Análisis de ingresos agrupados por servicio:**
+
+```bash
+GET /api/analytics/revenue
+Authorization: Bearer {admin-token}
+
+Response (200):
+[
+  {
+    "service_id": "uuid",
+    "service_name": "Consulta Cardiológica",
+    "total_citas": 35,
+    "revenue": 5250.00
+  },
+  {
+    "service_id": "uuid",
+    "service_name": "Consulta General",
+    "total_citas": 60,
+    "revenue": 4800.00
+  }
+]
+```
+
+**Características:**
+- Solo incluye citas completadas
+- Ordenado por ingresos (mayor a menor)
+- Muestra nombre del servicio, cantidad de citas e ingresos totales
+
+#### 3. Top Doctors
+
+**Ranking de doctores por número de citas:**
+
+```bash
+GET /api/analytics/top-doctors?limit=10
+Authorization: Bearer {admin-token}
+
+Response (200):
+[
+  {
+    "doctor_id": "doctor-uuid",
+    "doctor_name": "Doctor abc123...",  // Placeholder
+    "total_appointments": 85,
+    "completed_appointments": 78
+  },
+  {
+    "doctor_id": "doctor-uuid",
+    "doctor_name": "Doctor def456...",
+    "total_appointments": 67,
+    "completed_appointments": 62
+  }
+]
+```
+
+**Parámetros:**
+- `limit` (query, opcional): Número de doctores a retornar (default: 10)
+
+**Nota:** El `doctor_name` actualmente usa un placeholder. En producción se haría JOIN con la tabla users.
+
+#### 4. Top Services
+
+**Ranking de servicios más populares:**
+
+```bash
+GET /api/analytics/top-services?limit=10
+Authorization: Bearer {admin-token}
+
+Response (200):
+[
+  {
+    "service_id": "uuid",
+    "service_name": "Consulta General",
+    "total_citas": 95
+  },
+  {
+    "service_id": "uuid",
+    "service_name": "Consulta Cardiológica",
+    "total_citas": 78
+  }
+]
+```
+
+**Parámetros:**
+- `limit` (query, opcional): Número de servicios a retornar (default: 10)
+
+**Características:**
+- Incluye todas las citas (no solo completadas)
+- Ordenado por cantidad de citas (mayor a menor)
+
+### Arquitectura del Sistema de Analytics
+
+```
+HTTP Request (Admin)
+    ↓
+AuthMiddleware → Valida JWT
+    ↓
+RequireRole("admin") → Verifica rol
+    ↓
+AnalyticsHandler → Maneja request
+    ↓
+AnalyticsUseCase → Lógica de negocio
+    ↓
+Repository → Consultas SQL con agregaciones
+    ↓
+Response (JSON con métricas)
+```
+
+### Consultas SQL Utilizadas
+
+**Dashboard Summary:**
+```sql
+-- Conteo por estado
+SELECT COUNT(*) FROM appointments WHERE status = ?
+
+-- Ingresos totales
+SELECT COALESCE(SUM(s.price), 0)
+FROM appointments a
+JOIN services s ON a.service_id = s.id
+WHERE a.status = 'completed'
+
+-- Conteo de usuarios por rol
+SELECT COUNT(*) FROM users WHERE role = ? AND is_active = 1
+```
+
+**Revenue by Service:**
+```sql
+SELECT
+    a.service_id,
+    s.name,
+    COUNT(*) as count,
+    SUM(s.price) as revenue
+FROM appointments a
+JOIN services s ON a.service_id = s.id
+WHERE a.status = 'completed'
+GROUP BY a.service_id, s.name
+ORDER BY revenue DESC
+```
+
+**Top Doctors:**
+```sql
+SELECT
+    doctor_id,
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+FROM appointments
+GROUP BY doctor_id
+ORDER BY total DESC
+LIMIT ?
+```
+
+**Top Services:**
+```sql
+SELECT
+    a.service_id,
+    s.name,
+    COUNT(*) as count
+FROM appointments a
+JOIN services s ON a.service_id = s.id
+GROUP BY a.service_id, s.name
+ORDER BY count DESC
+LIMIT ?
+```
+
+### Casos de Uso
+
+**Caso 1: Dashboard administrativo**
+- El administrador accede al dashboard
+- Sistema muestra KPIs principales en tiempo real
+- Incluye gráficos de citas por estado y métricas financieras
+
+**Caso 2: Análisis de ingresos**
+- Administrador revisa qué servicios generan más ingresos
+- Identifica servicios rentables vs. subutilizados
+- Toma decisiones de pricing y marketing
+
+**Caso 3: Evaluación de desempeño**
+- Administrador consulta top doctores
+- Identifica doctores con mayor demanda
+- Planifica horarios y recursos según demanda
+
+**Caso 4: Optimización de servicios**
+- Administrador revisa servicios más solicitados
+- Ajusta oferta de servicios según demanda real
+- Asigna más doctores a servicios populares
+
+### Validaciones y Seguridad
+
+- ✅ Solo usuarios con rol `admin` pueden acceder
+- ✅ Requiere autenticación JWT válida
+- ✅ Límites configurables para rankings (default: 10, evita sobrecarga)
+- ✅ Queries optimizadas con agregaciones SQL
+- ✅ Solo datos agregados (no expone información sensible individual)
+
+### Testing del Sistema
+
+```bash
+# 1. Login como administrador
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@clinica.com","password":"admin123"}'
+
+# 2. Obtener dashboard summary
+curl -X GET http://localhost:8080/api/analytics/dashboard \
+  -H "Authorization: Bearer {admin-token}"
+
+# 3. Ver ingresos por servicio
+curl -X GET http://localhost:8080/api/analytics/revenue \
+  -H "Authorization: Bearer {admin-token}"
+
+# 4. Ver top 5 doctores
+curl -X GET "http://localhost:8080/api/analytics/top-doctors?limit=5" \
+  -H "Authorization: Bearer {admin-token}"
+
+# 5. Ver top 10 servicios
+curl -X GET "http://localhost:8080/api/analytics/top-services?limit=10" \
+  -H "Authorization: Bearer {admin-token}"
+```
+
+### Estructura de Código
+
+```
+internal/
+├── usecase/
+│   └── analytics/
+│       ├── dto.go                      # Estructuras de respuesta
+│       ├── get_dashboard_summary.go    # KPIs principales
+│       ├── get_revenue_stats.go        # Ingresos por servicio
+│       ├── get_top_doctors.go          # Ranking de doctores
+│       └── get_top_services.go         # Ranking de servicios
+├── delivery/
+│   └── http/
+│       └── handler/
+│           └── analytics_handler.go    # Handlers HTTP
+└── repository/
+    ├── interfaces.go                   # Métodos de analytics agregados
+    └── sqlite/
+        ├── appointment_repository.go   # Queries de analytics
+        └── user_repository.go          # Conteos por rol
+```
+
+### Mejoras Futuras
+
+- [ ] Gráficos de tendencias (citas por mes/semana)
+- [ ] Análisis de horarios pico (peak hours)
+- [ ] Razones de cancelación más comunes
+- [ ] Tiempo promedio de espera
+- [ ] Tasa de conversión pending → confirmed
+- [ ] Exportar reportes a PDF/Excel
+- [ ] Filtros por fecha (últimos 7 días, mes, año)
+- [ ] Comparativas período actual vs. anterior
+
+---
+
 ### Endpoints de Servicios
 
 #### 1. Crear Servicio (Admin)
@@ -1258,6 +1562,7 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Sesión 6:** Notificaciones Email (SendGrid) + Recordatorios Automáticos
 - **Sesión 7:** Sistema de Servicios + Slots Disponibles + Integración Completa
 - **Sesión 8:** Horarios Personalizados + Múltiples Bloques + Días No Laborables
+- **Sesión 9:** Analytics & Dashboard + KPIs + Rankings + Métricas de Negocio
 
 ### Tecnologías Elegidas:
 - **Go 1.21+** - Performance y concurrencia
@@ -1281,6 +1586,10 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Detección de overlap:** Validación automática de conflictos de horarios
 - **Días no laborables:** GetAvailableSlots retorna [] si no hay schedules para ese día
 - **Slots dinámicos:** Genera slots solo en horarios configurados, no en horario fijo
+- **Analytics con SQL agregaciones:** Queries optimizadas con COUNT, SUM, GROUP BY, JOIN para métricas
+- **Dashboard administrativo:** KPIs en tiempo real (citas, ingresos, tasas de cancelación)
+- **Rankings dinámicos:** Top doctores y servicios con límites configurables
+- **Seguridad en analytics:** Solo administradores acceden a métricas del negocio
 
 ---
 

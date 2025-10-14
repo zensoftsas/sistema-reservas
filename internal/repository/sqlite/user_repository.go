@@ -390,3 +390,29 @@ func (r *SqliteUserRepository) FindDoctorIDByUserID(ctx context.Context, userID 
 
 	return doctorID, nil
 }
+
+// CountByRole counts users by role
+func (r *SqliteUserRepository) CountByRole(ctx context.Context, role string) (int, error) {
+	query := `SELECT COUNT(*) FROM users WHERE role = ? AND is_active = 1`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, role).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountAllActive counts all active users
+func (r *SqliteUserRepository) CountAllActive(ctx context.Context) (int, error) {
+	query := `SELECT COUNT(*) FROM users WHERE is_active = 1`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

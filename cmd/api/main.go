@@ -8,6 +8,7 @@ import (
 	httpDelivery "version-1-0/internal/delivery/http"
 	"version-1-0/internal/delivery/http/handler"
 	"version-1-0/internal/repository/sqlite"
+	"version-1-0/internal/usecase/analytics"
 	"version-1-0/internal/usecase/appointment"
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/doctor"
@@ -103,6 +104,12 @@ func main() {
 	getSchedulesUC := schedule.NewGetDoctorSchedulesUseCase(scheduleRepo, userRepo)
 	deleteScheduleUC := schedule.NewDeleteScheduleUseCase(scheduleRepo)
 
+	// Create analytics use cases
+	getDashboardSummaryUC := analytics.NewGetDashboardSummaryUseCase(appointmentRepo, userRepo)
+	getRevenueStatsUC := analytics.NewGetRevenueStatsUseCase(appointmentRepo)
+	getTopDoctorsUC := analytics.NewGetTopDoctorsUseCase(appointmentRepo, userRepo)
+	getTopServicesUC := analytics.NewGetTopServicesUseCase(appointmentRepo)
+
 	// Create handlers
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
 	authHandler := handler.NewAuthHandler(loginUC)
@@ -110,9 +117,10 @@ func main() {
 	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
 	serviceHandler := handler.NewServiceHandler(createServiceUC, listServicesUC, assignServiceToDoctorUC, getDoctorsByServiceUC, getAvailableSlotsUC)
 	scheduleHandler := handler.NewScheduleHandler(createScheduleUC, getSchedulesUC, deleteScheduleUC)
+	analyticsHandler := handler.NewAnalyticsHandler(getDashboardSummaryUC, getRevenueStatsUC, getTopDoctorsUC, getTopServicesUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, scheduleHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, scheduleHandler, analyticsHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -142,6 +150,10 @@ func main() {
 	fmt.Println("   POST   /api/schedules            - Crear horario (admin)")
 	fmt.Println("   GET    /api/schedules/doctor/{id} - Ver horarios de doctor (público)")
 	fmt.Println("   DELETE /api/schedules/{id}       - Eliminar horario (admin)")
+	fmt.Println("   GET    /api/analytics/dashboard  - Resumen del dashboard (solo admin)")
+	fmt.Println("   GET    /api/analytics/revenue    - Estadísticas de ingresos (solo admin)")
+	fmt.Println("   GET    /api/analytics/top-doctors?limit=10 - Top doctores (solo admin)")
+	fmt.Println("   GET    /api/analytics/top-services?limit=10 - Top servicios (solo admin)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

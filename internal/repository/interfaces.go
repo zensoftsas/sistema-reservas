@@ -35,6 +35,13 @@ type UserRepository interface {
 
 	// FindDoctorIDByUserID returns the doctor.id for a given user_id
 	FindDoctorIDByUserID(ctx context.Context, userID string) (string, error)
+
+	// Analytics methods
+	// CountByRole counts users by role
+	CountByRole(ctx context.Context, role string) (int, error)
+
+	// CountAllActive counts all active users
+	CountAllActive(ctx context.Context) (int, error)
 }
 
 // PatientRepository defines the interface for patient data persistence operations
@@ -116,6 +123,37 @@ type AppointmentRepository interface {
 
 	// MarkReminder1hSent marks the 1-hour reminder as sent for an appointment
 	MarkReminder1hSent(ctx context.Context, id string) error
+
+	// Analytics methods
+	// CountByStatus counts appointments by status
+	CountByStatus(ctx context.Context, status string) (int, error)
+
+	// CountAll counts all appointments
+	CountAll(ctx context.Context) (int, error)
+
+	// GetTotalRevenue calculates total revenue from completed appointments
+	GetTotalRevenue(ctx context.Context) (float64, error)
+
+	// GetRevenueByService gets revenue grouped by service
+	GetRevenueByService(ctx context.Context) (map[string]struct {
+		ServiceName string
+		Count       int
+		Revenue     float64
+	}, error)
+
+	// GetTopDoctors gets doctors with most appointments
+	GetTopDoctors(ctx context.Context, limit int) ([]struct {
+		DoctorID              string
+		TotalAppointments     int
+		CompletedAppointments int
+	}, error)
+
+	// GetTopServices gets most used services
+	GetTopServices(ctx context.Context, limit int) ([]struct {
+		ServiceID   string
+		ServiceName string
+		Count       int
+	}, error)
 }
 
 // ScheduleRepository defines methods for schedule data access

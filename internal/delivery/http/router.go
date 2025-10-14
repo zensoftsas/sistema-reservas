@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, scheduleHandler *handler.ScheduleHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, scheduleHandler *handler.ScheduleHandler, analyticsHandler *handler.AnalyticsHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -132,6 +132,31 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	deleteScheduleWithRole := middleware.RequireRole("admin")(deleteScheduleHandler)
 	deleteScheduleWithAuth := middleware.AuthMiddleware(jwtSecret)(deleteScheduleWithRole)
 	mux.Handle("DELETE /api/schedules/{id}", deleteScheduleWithAuth)
+
+	// Analytics routes (admin only)
+	// Dashboard summary - GET /api/analytics/dashboard
+	dashboardHandler := http.HandlerFunc(analyticsHandler.GetDashboardSummary)
+	dashboardWithRole := middleware.RequireRole("admin")(dashboardHandler)
+	dashboardWithAuth := middleware.AuthMiddleware(jwtSecret)(dashboardWithRole)
+	mux.Handle("/api/analytics/dashboard", dashboardWithAuth)
+
+	// Revenue stats - GET /api/analytics/revenue
+	revenueHandler := http.HandlerFunc(analyticsHandler.GetRevenueStats)
+	revenueWithRole := middleware.RequireRole("admin")(revenueHandler)
+	revenueWithAuth := middleware.AuthMiddleware(jwtSecret)(revenueWithRole)
+	mux.Handle("/api/analytics/revenue", revenueWithAuth)
+
+	// Top doctors - GET /api/analytics/top-doctors?limit=10
+	topDoctorsHandler := http.HandlerFunc(analyticsHandler.GetTopDoctors)
+	topDoctorsWithRole := middleware.RequireRole("admin")(topDoctorsHandler)
+	topDoctorsWithAuth := middleware.AuthMiddleware(jwtSecret)(topDoctorsWithRole)
+	mux.Handle("/api/analytics/top-doctors", topDoctorsWithAuth)
+
+	// Top services - GET /api/analytics/top-services?limit=10
+	topServicesHandler := http.HandlerFunc(analyticsHandler.GetTopServices)
+	topServicesWithRole := middleware.RequireRole("admin")(topServicesHandler)
+	topServicesWithAuth := middleware.AuthMiddleware(jwtSecret)(topServicesWithRole)
+	mux.Handle("/api/analytics/top-services", topServicesWithAuth)
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

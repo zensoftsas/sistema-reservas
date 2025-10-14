@@ -25,8 +25,12 @@ func NewSqliteAppointmentRepository(db *sql.DB) repository.AppointmentRepository
 // Create inserts a new appointment into the database
 func (r *SqliteAppointmentRepository) Create(ctx context.Context, appointment *domain.Appointment) error {
 	query := `
-		INSERT INTO appointments (id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO appointments (
+			id, patient_id, doctor_id, scheduled_at, duration,
+			reason, notes, status, created_at, updated_at,
+			reminder_24h_sent, reminder_1h_sent, service_id
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err := r.db.ExecContext(
@@ -37,11 +41,14 @@ func (r *SqliteAppointmentRepository) Create(ctx context.Context, appointment *d
 		appointment.DoctorID,
 		appointment.ScheduledAt.Format(time.RFC3339),
 		appointment.Duration,
-		appointment.Status,
 		appointment.Reason,
 		appointment.Notes,
+		appointment.Status,
 		appointment.CreatedAt.Format(time.RFC3339),
 		appointment.UpdatedAt.Format(time.RFC3339),
+		appointment.Reminder24hSent,
+		appointment.Reminder1hSent,
+		appointment.ServiceID,
 	)
 
 	return err
@@ -379,4 +386,195 @@ func (r *SqliteAppointmentRepository) queryAppointmentsWithNames(ctx context.Con
 	}
 
 	return appointments, rows.Err()
+}
+
+// CountByStatus counts appointments by status
+func (r *SqliteAppointmentRepository) CountByStatus(ctx context.Context, status string) (int, error) {
+	query := `SELECT COUNT(*) FROM appointments WHERE status = ?`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, status).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountAll counts all appointments
+func (r *SqliteAppointmentRepository) CountAll(ctx context.Context) (int, error) {
+	query := `SELECT COUNT(*) FROM appointments`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// GetTotalRevenue calculates total revenue from completed appointments
+func (r *SqliteAppointmentRepository) GetTotalRevenue(ctx context.Context) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(s.price), 0)
+		FROM appointments a
+		JOIN services s ON a.service_id = s.id
+		WHERE a.status = ?
+	`
+
+	var revenue float64
+	err := r.db.QueryRowContext(ctx, query, "completed").Scan(&revenue)
+	if err != nil {
+		return 0, err
+	}
+
+	return revenue, nil
+}
+
+// GetRevenueByService gets revenue grouped by service
+func (r *SqliteAppointmentRepository) GetRevenueByService(ctx context.Context) (map[string]struct {
+	ServiceName string
+	Count       int
+	Revenue     float64
+}, error) {
+	query := `
+		SELECT
+			a.service_id,
+			s.name,
+			COUNT(*) as count,
+			SUM(s.price) as revenue
+		FROM appointments a
+		JOIN services s ON a.service_id = s.id
+		WHERE a.status = ?
+		GROUP BY a.service_id, s.name
+		ORDER BY revenue DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, "completed")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]struct {
+		ServiceName string
+		Count       int
+		Revenue     float64
+	})
+
+	for rows.Next() {
+		var serviceID, serviceName string
+		var count int
+		var revenue float64
+
+		if err := rows.Scan(&serviceID, &serviceName, &count, &revenue); err != nil {
+			return nil, err
+		}
+
+		result[serviceID] = struct {
+			ServiceName string
+			Count       int
+			Revenue     float64
+		}{
+			ServiceName: serviceName,
+			Count:       count,
+			Revenue:     revenue,
+		}
+	}
+
+	return result, rows.Err()
+}
+
+// GetTopDoctors gets doctors with most appointments
+func (r *SqliteAppointmentRepository) GetTopDoctors(ctx context.Context, limit int) ([]struct {
+	DoctorID              string
+	TotalAppointments     int
+	CompletedAppointments int
+}, error) {
+	query := `
+		SELECT
+			doctor_id,
+			COUNT(*) as total,
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+		FROM appointments
+		GROUP BY doctor_id
+		ORDER BY total DESC
+		LIMIT ?
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		DoctorID              string
+		TotalAppointments     int
+		CompletedAppointments int
+	}
+
+	for rows.Next() {
+		var item struct {
+			DoctorID              string
+			TotalAppointments     int
+			CompletedAppointments int
+		}
+
+		if err := rows.Scan(&item.DoctorID, &item.TotalAppointments, &item.CompletedAppointments); err != nil {
+			return nil, err
+		}
+
+		results = append(results, item)
+	}
+
+	return results, rows.Err()
+}
+
+// GetTopServices gets most used services
+func (r *SqliteAppointmentRepository) GetTopServices(ctx context.Context, limit int) ([]struct {
+	ServiceID   string
+	ServiceName string
+	Count       int
+}, error) {
+	query := `
+		SELECT
+			a.service_id,
+			s.name,
+			COUNT(*) as count
+		FROM appointments a
+		JOIN services s ON a.service_id = s.id
+		GROUP BY a.service_id, s.name
+		ORDER BY count DESC
+		LIMIT ?
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ServiceID   string
+		ServiceName string
+		Count       int
+	}
+
+	for rows.Next() {
+		var item struct {
+			ServiceID   string
+			ServiceName string
+			Count       int
+		}
+
+		if err := rows.Scan(&item.ServiceID, &item.ServiceName, &item.Count); err != nil {
+			return nil, err
+		}
+
+		results = append(results, item)
+	}
+
+	return results, rows.Err()
 }
