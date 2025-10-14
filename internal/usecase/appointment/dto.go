@@ -5,6 +5,7 @@ import "time"
 // CreateAppointmentRequest represents the input data for creating a new appointment
 type CreateAppointmentRequest struct {
 	DoctorID        string `json:"doctor_id"`
+	ServiceID       string `json:"service_id"`
 	AppointmentDate string `json:"appointment_date"` // Format: "2006-01-02" (YYYY-MM-DD)
 	AppointmentTime string `json:"appointment_time"` // Format: "15:04" (HH:MM 24-hour)
 	Reason          string `json:"reason"`

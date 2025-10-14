@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"version-1-0/internal/delivery/http/middleware"
 	"version-1-0/internal/usecase/appointment"
@@ -67,16 +68,37 @@ func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute use case
+	// Validate service_id
+	if req.ServiceID == "" {
+		http.Error(w, "service_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Parse appointment date and time
+	dateTimeStr := req.AppointmentDate + " " + req.AppointmentTime + ":00"
+	scheduledAt, err := time.Parse("2006-01-02 15:04:05", dateTimeStr)
+	if err != nil {
+		http.Error(w, "Invalid date or time format", http.StatusBadRequest)
+		return
+	}
+
+	// Create appointment with service
 	ctx := context.Background()
-	response, err := h.createAppointmentUC.Execute(ctx, patientUserID, req)
+	appointmentCreated, err := h.createAppointmentUC.Execute(
+		ctx,
+		patientUserID,
+		req.DoctorID,
+		req.ServiceID,
+		scheduledAt,
+		req.Reason,
+	)
 	if err != nil {
 		// Handle specific error cases
 		if err.Error() == "doctor not found" || err.Error() == "patient not found" {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		if err.Error() == "doctor is not available at this time" {
+		if err.Error() == "time slot is not available" {
 			http.Error(w, err.Error(), http.StatusConflict)
 			return
 		}
@@ -87,7 +109,7 @@ func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(appointmentCreated)
 }
 
 // GetMyAppointments handles the HTTP request for retrieving patient's own appointments

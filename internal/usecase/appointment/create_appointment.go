@@ -3,7 +3,7 @@ package appointment
 import (
 	"context"
 	"errors"
-	"strings"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,144 +13,135 @@ import (
 	"version-1-0/pkg/email"
 )
 
-// CreateAppointmentUseCase handles the business logic for creating appointments
+// CreateAppointmentUseCase handles the creation of appointments
 type CreateAppointmentUseCase struct {
-	appointmentRepo repository.AppointmentRepository
-	userRepo        repository.UserRepository
-	emailService    *email.EmailService
+	appointmentRepo   repository.AppointmentRepository
+	userRepo          repository.UserRepository
+	serviceRepo       repository.ServiceRepository
+	doctorServiceRepo repository.DoctorServiceRepository
+	emailService      *email.EmailService
 }
 
-// NewCreateAppointmentUseCase creates a new instance of CreateAppointmentUseCase
-func NewCreateAppointmentUseCase(appointmentRepo repository.AppointmentRepository, userRepo repository.UserRepository, emailService *email.EmailService) *CreateAppointmentUseCase {
+// NewCreateAppointmentUseCase creates a new CreateAppointmentUseCase
+func NewCreateAppointmentUseCase(
+	appointmentRepo repository.AppointmentRepository,
+	userRepo repository.UserRepository,
+	serviceRepo repository.ServiceRepository,
+	doctorServiceRepo repository.DoctorServiceRepository,
+	emailService *email.EmailService,
+) *CreateAppointmentUseCase {
 	return &CreateAppointmentUseCase{
-		appointmentRepo: appointmentRepo,
-		userRepo:        userRepo,
-		emailService:    emailService,
+		appointmentRepo:   appointmentRepo,
+		userRepo:          userRepo,
+		serviceRepo:       serviceRepo,
+		doctorServiceRepo: doctorServiceRepo,
+		emailService:      emailService,
 	}
 }
 
-// Execute creates a new appointment with comprehensive validation
-func (uc *CreateAppointmentUseCase) Execute(ctx context.Context, patientUserID string, req CreateAppointmentRequest) (*CreateAppointmentResponse, error) {
-	// Validate doctor ID is not empty
-	if strings.TrimSpace(req.DoctorID) == "" {
-		return nil, errors.New("doctor ID is required")
-	}
-
-	// Validate appointment date is not empty
-	if strings.TrimSpace(req.AppointmentDate) == "" {
-		return nil, errors.New("appointment date is required")
-	}
-
-	// Validate appointment time is not empty
-	if strings.TrimSpace(req.AppointmentTime) == "" {
-		return nil, errors.New("appointment time is required")
-	}
-
-	// Validate reason is not empty and has minimum length
-	if strings.TrimSpace(req.Reason) == "" {
-		return nil, errors.New("reason is required")
-	}
-	if len(strings.TrimSpace(req.Reason)) < 10 {
-		return nil, errors.New("reason must be at least 10 characters long")
-	}
-
-	// Combine date and time into a single datetime
-	dateTimeStr := req.AppointmentDate + " " + req.AppointmentTime + ":00"
-	scheduledAt, err := time.Parse("2006-01-02 15:04:05", dateTimeStr)
-	if err != nil {
-		return nil, errors.New("invalid date or time format")
-	}
-
-	// Validate that the appointment is in the future
-	if scheduledAt.Before(time.Now()) {
-		return nil, errors.New("appointment must be scheduled in the future")
-	}
-
-	// Verify that the patient exists and is active
-	patient, err := uc.userRepo.FindByID(ctx, patientUserID)
+// Execute creates a new appointment with a service
+func (uc *CreateAppointmentUseCase) Execute(ctx context.Context, patientID, doctorID, serviceID string, scheduledAt time.Time, reason string) (*domain.Appointment, error) {
+	// Validate patient exists
+	patient, err := uc.userRepo.FindByID(ctx, patientID)
 	if err != nil {
 		return nil, err
 	}
 	if patient == nil {
 		return nil, errors.New("patient not found")
 	}
-	if !patient.IsActive {
-		return nil, errors.New("patient account is inactive")
-	}
 
-	// Verify that the doctor exists and is active
-	doctor, err := uc.userRepo.FindByID(ctx, req.DoctorID)
+	// Validate doctor exists
+	doctor, err := uc.userRepo.FindByID(ctx, doctorID)
 	if err != nil {
 		return nil, err
 	}
 	if doctor == nil {
 		return nil, errors.New("doctor not found")
 	}
-	if !doctor.IsActive {
-		return nil, errors.New("doctor account is inactive")
-	}
-	if doctor.Role != "doctor" {
-		return nil, errors.New("user is not a doctor")
-	}
 
-	// Verify doctor availability at the requested time
-	existingAppointments, err := uc.appointmentRepo.FindByDoctorAndDate(ctx, req.DoctorID, scheduledAt)
+	// Get real doctor.id
+	realDoctorID, err := uc.userRepo.FindDoctorIDByUserID(ctx, doctorID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check for time conflicts
-	for _, existing := range existingAppointments {
-		if existing.ScheduledAt.Format("15:04") == scheduledAt.Format("15:04") &&
-			existing.Status != domain.StatusCancelled {
-			return nil, errors.New("doctor is not available at this time")
+	// Validate service exists
+	service, err := uc.serviceRepo.FindByID(ctx, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	if service == nil {
+		return nil, errors.New("service not found")
+	}
+	if !service.IsActive {
+		return nil, errors.New("service is not active")
+	}
+
+	// Validate doctor offers this service
+	isAssigned, err := uc.doctorServiceRepo.IsAssigned(ctx, realDoctorID, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	if !isAssigned {
+		return nil, errors.New("doctor does not offer this service")
+	}
+
+	// Check for scheduling conflicts
+	appointmentEnd := scheduledAt.Add(time.Duration(service.DurationMinutes) * time.Minute)
+	conflicts, err := uc.appointmentRepo.FindByDoctorAndDate(ctx, realDoctorID, scheduledAt)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, conflict := range conflicts {
+		if conflict.Status == "cancelled" {
+			continue
+		}
+
+		conflictEnd := conflict.ScheduledAt.Add(time.Duration(conflict.Duration) * time.Minute)
+
+		if scheduledAt.Before(conflictEnd) && appointmentEnd.After(conflict.ScheduledAt) {
+			return nil, errors.New("time slot is not available")
 		}
 	}
 
-	// Create the appointment
+	// Create appointment
+	now := time.Now()
 	appointment := &domain.Appointment{
 		ID:          uuid.New().String(),
-		PatientID:   patientUserID,
-		DoctorID:    req.DoctorID,
+		PatientID:   patientID,
+		DoctorID:    realDoctorID,
+		ServiceID:   serviceID,
+		ServiceName: service.Name,
 		ScheduledAt: scheduledAt,
-		Duration:    30, // Default 30 minutes
-		Reason:      strings.TrimSpace(req.Reason),
-		Notes:       "",
-		Status:      domain.StatusPending,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		Duration:    service.DurationMinutes,
+		Reason:      reason,
+		Status:      "pending",
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	// Save to database
-	err = uc.appointmentRepo.Create(ctx, appointment)
-	if err != nil {
+	if err := appointment.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Build and return response
-	response := &CreateAppointmentResponse{
-		ID:              appointment.ID,
-		PatientID:       appointment.PatientID,
-		DoctorID:        appointment.DoctorID,
-		AppointmentDate: appointment.ScheduledAt.Format("2006-01-02"),
-		AppointmentTime: appointment.ScheduledAt.Format("15:04"),
-		Status:          string(appointment.Status),
-		Reason:          appointment.Reason,
-		CreatedAt:       appointment.CreatedAt,
+	if err := uc.appointmentRepo.Create(ctx, appointment); err != nil {
+		return nil, err
 	}
 
-	// Send email notification to patient
+	// Send notification email
 	if uc.emailService != nil {
 		patientName := patient.FirstName + " " + patient.LastName
 		doctorName := doctor.FirstName + " " + doctor.LastName
-		uc.emailService.SendAppointmentCreated(
-			patient.Email,
-			patientName,
-			doctorName,
-			response.AppointmentDate,
-			response.AppointmentTime,
-		)
+		date := scheduledAt.Format("2006-01-02")
+		timeStr := scheduledAt.Format("15:04")
+
+		go func() {
+			if err := uc.emailService.SendAppointmentCreated(patient.Email, patientName, doctorName, date, timeStr); err != nil {
+				log.Printf("Failed to send appointment created email: %v", err)
+			}
+		}()
 	}
 
-	return response, nil
+	return appointment, nil
 }

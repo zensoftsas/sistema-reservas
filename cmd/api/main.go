@@ -75,7 +75,7 @@ func main() {
 	deleteUserUC := user.NewDeleteUserUseCase(userRepo)
 
 	// Create appointment use cases
-	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo, emailService)
+	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo, serviceRepo, doctorServiceRepo, emailService)
 	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo)
 	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo)
 	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo, userRepo, emailService)
