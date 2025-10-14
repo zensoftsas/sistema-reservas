@@ -123,6 +123,11 @@ version-1-0/
 - `GET    /api/services/doctors?service_id=`          - Doctores que ofrecen servicio (público)
 - `GET    /api/services/available-slots?doctor_id=&service_id=&date=` - Horarios disponibles (público)
 
+**Horarios Personalizados:**
+- `POST   /api/schedules`                             - Crear horario (admin)
+- `GET    /api/schedules/doctor/{id}`                 - Ver horarios de doctor (público)
+- `DELETE /api/schedules/{id}`                        - Eliminar horario (admin)
+
 ---
 
 ### Health Check
@@ -820,6 +825,174 @@ El sistema permite gestionar servicios/consultas médicas con diferentes duracio
    → Duración automática del servicio
 ```
 
+---
+
+## 📅 Sistema de Horarios Personalizados
+
+### Descripción
+Cada doctor puede tener horarios personalizados por día de la semana. Esto permite:
+- Horarios diferentes cada día
+- Múltiples bloques horarios por día (ej: mañana + tarde)
+- Días no laborables (sin schedules = no genera slots)
+- Validación automática de conflictos
+
+### Configuración de Horarios
+
+Los horarios se configuran por día de la semana (monday-sunday) con:
+- `start_time`: Hora de inicio (formato HH:MM)
+- `end_time`: Hora de fin (formato HH:MM)
+- `slot_duration`: Duración de cada slot en minutos
+
+**Ejemplo de configuración:**
+```
+Dra. García - Lunes:
+  - Bloque 1: 09:00-13:00 (mañana)
+  - Bloque 2: 15:00-18:00 (tarde)
+
+Dra. García - Viernes:
+  - Bloque 1: 08:00-12:00
+
+Dra. García - Miércoles:
+  - Sin schedules (no trabaja)
+```
+
+### Endpoints de Horarios
+
+#### 1. Crear Horario (Admin)
+```bash
+POST /api/schedules
+Authorization: Bearer {admin-token}
+
+Request:
+{
+  "doctor_id": "user-uuid",
+  "day_of_week": "monday",
+  "start_time": "09:00",
+  "end_time": "13:00",
+  "slot_duration": 30
+}
+
+Response (201):
+{
+  "id": "schedule-uuid",
+  "doctor_id": "doctor-real-id",
+  "day_of_week": "monday",
+  "start_time": "09:00",
+  "end_time": "13:00",
+  "slot_duration": 30,
+  "is_active": true,
+  "created_at": "2025-10-14T13:41:47Z"
+}
+```
+
+#### 2. Ver Horarios de un Doctor (Público)
+```bash
+GET /api/schedules/doctor/{user-id}
+
+Response (200):
+[
+  {
+    "id": "uuid",
+    "day_of_week": "monday",
+    "start_time": "09:00",
+    "end_time": "13:00",
+    "slot_duration": 30,
+    "is_active": true
+  },
+  {
+    "id": "uuid",
+    "day_of_week": "monday",
+    "start_time": "15:00",
+    "end_time": "18:00",
+    "slot_duration": 30,
+    "is_active": true
+  }
+]
+```
+
+#### 3. Eliminar Horario (Admin)
+```bash
+DELETE /api/schedules/{schedule-id}
+Authorization: Bearer {admin-token}
+
+Response (200):
+{
+  "message": "Schedule deleted successfully"
+}
+```
+
+### Integración con Slots Disponibles
+
+**GetAvailableSlots ahora usa horarios reales:**
+```bash
+GET /api/services/available-slots?doctor_id={id}&service_id={id}&date=2025-10-20
+
+# Si es Lunes (con 2 bloques: 09:00-13:00 y 15:00-18:00):
+[
+  {"time": "09:00", "available": true},
+  {"time": "09:45", "available": true},
+  {"time": "10:30", "available": true},
+  {"time": "11:15", "available": true},
+  {"time": "12:00", "available": true},
+  {"time": "12:45", "available": true},
+  // GAP - no genera slots 13:00-15:00
+  {"time": "15:00", "available": true},
+  {"time": "15:45", "available": true},
+  {"time": "16:30", "available": true},
+  {"time": "17:15", "available": true}
+]
+
+# Si es Miércoles (sin schedules):
+[]  // No trabaja ese día
+```
+
+### Validaciones Implementadas
+
+Al crear un horario:
+- ✅ `doctor_id` debe ser un doctor válido y activo
+- ✅ `day_of_week` debe ser monday-sunday
+- ✅ `start_time` y `end_time` en formato HH:MM
+- ✅ `start_time` debe ser antes de `end_time`
+- ✅ `slot_duration` debe ser mayor que 0
+- ✅ No puede solaparse con otro horario del mismo día
+- ✅ Usa `doctor.id` real (no `user.id`)
+
+### Casos de Uso
+```
+Caso 1: Doctor con horario partido
+- Lunes: 08:00-12:00 (mañana) + 14:00-18:00 (tarde)
+- Sistema genera 2 grupos de slots separados
+
+Caso 2: Doctor con días libres
+- Lunes, Martes, Jueves: Tiene schedules
+- Miércoles, Viernes: Sin schedules
+- GetAvailableSlots retorna [] en días sin schedule
+
+Caso 3: Prevención de conflictos
+- Intento de crear 09:00-13:00 cuando ya existe 11:00-15:00
+- Sistema rechaza por overlap
+```
+
+### Arquitectura
+```
+Admin configura schedule
+    ↓
+Guarda en tabla schedules (doctor_id, day_of_week, start_time, end_time)
+    ↓
+Paciente consulta slots disponibles
+    ↓
+GetAvailableSlots:
+  1. Obtiene día de la semana de la fecha (monday, tuesday, etc.)
+  2. Consulta schedules del doctor para ese día
+  3. Si no hay schedules → retorna []
+  4. Si hay schedules → genera slots solo en esos horarios
+  5. Marca slots ocupados por citas existentes
+    ↓
+Retorna slots con disponibilidad real
+```
+
+---
+
 ### Endpoints de Servicios
 
 #### 1. Crear Servicio (Admin)
@@ -1084,6 +1257,7 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Sesión 5:** Confirm/Complete Citas + Historial Médico + Búsqueda Doctores
 - **Sesión 6:** Notificaciones Email (SendGrid) + Recordatorios Automáticos
 - **Sesión 7:** Sistema de Servicios + Slots Disponibles + Integración Completa
+- **Sesión 8:** Horarios Personalizados + Múltiples Bloques + Días No Laborables
 
 ### Tecnologías Elegidas:
 - **Go 1.21+** - Performance y concurrencia
@@ -1103,6 +1277,10 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Cálculo de slots disponibles:** Algoritmo que genera slots basados en duración del servicio y detecta conflictos
 - **Validación de asignaciones:** Doctor debe ofrecer el servicio antes de crear cita
 - **Duración automática:** La duración de la cita se obtiene del servicio, no es manual
+- **Horarios personalizados por doctor:** Sistema de schedules con soporte para múltiples bloques horarios por día
+- **Detección de overlap:** Validación automática de conflictos de horarios
+- **Días no laborables:** GetAvailableSlots retorna [] si no hay schedules para ese día
+- **Slots dinámicos:** Genera slots solo en horarios configurados, no en horario fijo
 
 ---
 
