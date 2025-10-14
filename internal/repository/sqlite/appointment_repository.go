@@ -91,25 +91,57 @@ func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (
 // FindByPatientID retrieves all appointments for a specific patient
 func (r *SqliteAppointmentRepository) FindByPatientID(ctx context.Context, patientID string) ([]*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
-		FROM appointments
-		WHERE patient_id = ?
-		ORDER BY scheduled_at DESC
+		SELECT
+			a.id,
+			a.patient_id,
+			a.doctor_id,
+			a.scheduled_at,
+			a.duration,
+			a.status,
+			a.reason,
+			a.notes,
+			a.created_at,
+			a.updated_at,
+			a.reminder_24h_sent,
+			a.reminder_1h_sent,
+			(p.first_name || ' ' || p.last_name) as patient_name,
+			(d.first_name || ' ' || d.last_name) as doctor_name
+		FROM appointments a
+		JOIN users p ON p.id = a.patient_id
+		JOIN users d ON d.id = a.doctor_id
+		WHERE a.patient_id = ?
+		ORDER BY a.scheduled_at DESC
 	`
 
-	return r.queryAppointments(ctx, query, patientID)
+	return r.queryAppointmentsWithNames(ctx, query, patientID)
 }
 
 // FindByDoctorID retrieves all appointments for a specific doctor
 func (r *SqliteAppointmentRepository) FindByDoctorID(ctx context.Context, doctorID string) ([]*domain.Appointment, error) {
 	query := `
-		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
-		FROM appointments
-		WHERE doctor_id = ?
-		ORDER BY scheduled_at DESC
+		SELECT
+			a.id,
+			a.patient_id,
+			a.doctor_id,
+			a.scheduled_at,
+			a.duration,
+			a.status,
+			a.reason,
+			a.notes,
+			a.created_at,
+			a.updated_at,
+			a.reminder_24h_sent,
+			a.reminder_1h_sent,
+			(p.first_name || ' ' || p.last_name) as patient_name,
+			(d.first_name || ' ' || d.last_name) as doctor_name
+		FROM appointments a
+		JOIN users p ON p.id = a.patient_id
+		JOIN users d ON d.id = a.doctor_id
+		WHERE a.doctor_id = ?
+		ORDER BY a.scheduled_at DESC
 	`
 
-	return r.queryAppointments(ctx, query, doctorID)
+	return r.queryAppointmentsWithNames(ctx, query, doctorID)
 }
 
 // FindByDoctorAndDate retrieves all appointments for a doctor on a specific date
@@ -284,4 +316,55 @@ func (r *SqliteAppointmentRepository) MarkReminder1hSent(ctx context.Context, id
 	query := `UPDATE appointments SET reminder_1h_sent = 1 WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+// queryAppointmentsWithNames is a helper method to query appointments with patient and doctor names
+func (r *SqliteAppointmentRepository) queryAppointmentsWithNames(ctx context.Context, query string, args ...interface{}) ([]*domain.Appointment, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var appointments []*domain.Appointment
+
+	for rows.Next() {
+		var appointment domain.Appointment
+		var scheduledAt, createdAt, updatedAt string
+		var patientName, doctorName string
+
+		err := rows.Scan(
+			&appointment.ID,
+			&appointment.PatientID,
+			&appointment.DoctorID,
+			&scheduledAt,
+			&appointment.Duration,
+			&appointment.Status,
+			&appointment.Reason,
+			&appointment.Notes,
+			&createdAt,
+			&updatedAt,
+			&appointment.Reminder24hSent,
+			&appointment.Reminder1hSent,
+			&patientName,
+			&doctorName,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// Parse times
+		appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
+		appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+
+		// Set names
+		appointment.PatientName = patientName
+		appointment.DoctorName = doctorName
+
+		appointments = append(appointments, &appointment)
+	}
+
+	return appointments, rows.Err()
 }

@@ -22,6 +22,10 @@ type Appointment struct {
 	ID                 string            `json:"id"`
 	PatientID          string            `json:"patient_id"`
 	DoctorID           string            `json:"doctor_id"`
+	ServiceID          string            `json:"service_id,omitempty"`          // Optional: Service associated with this appointment
+	PatientName        string            `json:"patient_name,omitempty"`        // Full name of patient
+	DoctorName         string            `json:"doctor_name,omitempty"`         // Full name of doctor with "Dr." prefix
+	ServiceName        string            `json:"service_name,omitempty"`        // Name of the service
 	ScheduledAt        time.Time         `json:"scheduled_at"`
 	Duration           int               `json:"duration"` // in minutes
 	Reason             string            `json:"reason"`

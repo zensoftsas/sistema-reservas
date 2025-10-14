@@ -150,6 +150,64 @@ func MigrateDB(db *sql.DB) error {
 		return err
 	}
 
+	// Create services table
+	createServicesTable := `
+	CREATE TABLE IF NOT EXISTS services (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		description TEXT,
+		duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
+		price REAL NOT NULL CHECK(price >= 0),
+		is_active BOOLEAN NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL
+	);`
+
+	if _, err := db.Exec(createServicesTable); err != nil {
+		return err
+	}
+
+	// Create index on service name for faster lookups
+	createServiceNameIndex := `CREATE INDEX IF NOT EXISTS idx_services_name ON services(name);`
+	if _, err := db.Exec(createServiceNameIndex); err != nil {
+		return err
+	}
+
+	// Create index on is_active for filtering active services
+	createServiceActiveIndex := `CREATE INDEX IF NOT EXISTS idx_services_is_active ON services(is_active);`
+	if _, err := db.Exec(createServiceActiveIndex); err != nil {
+		return err
+	}
+
+	// Create doctor_services table (many-to-many relationship)
+	createDoctorServicesTable := `
+	CREATE TABLE IF NOT EXISTS doctor_services (
+		id TEXT PRIMARY KEY,
+		doctor_id TEXT NOT NULL,
+		service_id TEXT NOT NULL,
+		is_active BOOLEAN NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL,
+		updated_at DATETIME NOT NULL,
+		FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+		FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+		UNIQUE(doctor_id, service_id)
+	);`
+
+	if _, err := db.Exec(createDoctorServicesTable); err != nil {
+		return err
+	}
+
+	// Create indexes for doctor_services
+	createDoctorServicesDocIndex := `CREATE INDEX IF NOT EXISTS idx_doctor_services_doctor_id ON doctor_services(doctor_id);`
+	if _, err := db.Exec(createDoctorServicesDocIndex); err != nil {
+		return err
+	}
+
+	createDoctorServicesServiceIndex := `CREATE INDEX IF NOT EXISTS idx_doctor_services_service_id ON doctor_services(service_id);`
+	if _, err := db.Exec(createDoctorServicesServiceIndex); err != nil {
+		return err
+	}
+
 	// Create appointments table
 	createAppointmentsTable := `
 	CREATE TABLE IF NOT EXISTS appointments (
@@ -184,6 +242,12 @@ func MigrateDB(db *sql.DB) error {
 `
 	db.Exec(alterAppointmentsReminder1h) // Ignore error if column exists
 
+	// Add service_id to appointments table if it doesn't exist
+	alterAppointmentsServiceID := `
+	ALTER TABLE appointments ADD COLUMN service_id TEXT REFERENCES services(id);
+`
+	db.Exec(alterAppointmentsServiceID) // Ignore error if column exists
+
 	// Create indexes for appointments
 	createAppointmentPatientIndex := `CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id);`
 	if _, err := db.Exec(createAppointmentPatientIndex); err != nil {
@@ -202,6 +266,11 @@ func MigrateDB(db *sql.DB) error {
 
 	createAppointmentStatusIndex := `CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);`
 	if _, err := db.Exec(createAppointmentStatusIndex); err != nil {
+		return err
+	}
+
+	createAppointmentServiceIndex := `CREATE INDEX IF NOT EXISTS idx_appointments_service_id ON appointments(service_id);`
+	if _, err := db.Exec(createAppointmentServiceIndex); err != nil {
 		return err
 	}
 

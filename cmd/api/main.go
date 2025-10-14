@@ -11,6 +11,7 @@ import (
 	"version-1-0/internal/usecase/appointment"
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/doctor"
+	"version-1-0/internal/usecase/service"
 	"version-1-0/internal/usecase/user"
 	"version-1-0/pkg/email"
 	"version-1-0/pkg/reminder"
@@ -47,8 +48,11 @@ func main() {
 	fmt.Println("✅ Migraciones completadas\n")
 	fmt.Println("⏰ Servicio de recordatorios iniciado")
 
-	// Create repository
+	// Create repositories
 	userRepo := sqlite.NewSqliteUserRepository(db)
+	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
+	serviceRepo := sqlite.NewSqliteServiceRepository(db)
+	doctorServiceRepo := sqlite.NewSqliteDoctorServiceRepository(db)
 
 	// Create email service
 	emailService := email.NewEmailService(
@@ -56,9 +60,6 @@ func main() {
 		cfg.SendGridFromEmail,
 		cfg.SendGridFromName,
 	)
-
-	// Create appointment repository
-	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
 
 	// Create reminder service
 	reminderService := reminder.NewReminderService(appointmentRepo, userRepo, emailService)
@@ -85,19 +86,24 @@ func main() {
 	// Create doctor use cases
 	searchDoctorsUC := doctor.NewSearchDoctorsUseCase(userRepo)
 
+	// Create service use cases
+	createServiceUC := service.NewCreateServiceUseCase(serviceRepo)
+	listServicesUC := service.NewListServicesUseCase(serviceRepo)
+	assignServiceToDoctorUC := service.NewAssignServiceToDoctorUseCase(doctorServiceRepo, serviceRepo, userRepo)
+	getDoctorsByServiceUC := service.NewGetDoctorsByServiceUseCase(doctorServiceRepo, serviceRepo)
+
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
 	authHandler := handler.NewAuthHandler(loginUC)
-	// Create appointment handler
 	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC, confirmAppointmentUC, completeAppointmentUC, getHistoryUC)
-	// Create doctor handler
 	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
+	serviceHandler := handler.NewServiceHandler(createServiceUC, listServicesUC, assignServiceToDoctorUC, getDoctorsByServiceUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -119,6 +125,10 @@ func main() {
 	fmt.Println("   PUT    /api/appointments/confirm?id= - Confirmar cita (doctor/admin)")
 	fmt.Println("   PUT    /api/appointments/complete?id= - Completar cita (doctor/admin)")
 	fmt.Println("   GET    /api/appointments/history?patient_id= - Historial médico (autenticado)")
+	fmt.Println("   POST   /api/services/create      - Crear servicio (solo admin)")
+	fmt.Println("   GET    /api/services             - Listar servicios activos (público)")
+	fmt.Println("   POST   /api/services/assign      - Asignar servicio a doctor (solo admin)")
+	fmt.Println("   GET    /api/services/doctors?service_id= - Obtener doctores por servicio (público)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

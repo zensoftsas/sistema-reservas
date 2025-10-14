@@ -27,6 +27,8 @@ type GetAppointmentResponse struct {
 	ID              string    `json:"id"`
 	PatientID       string    `json:"patient_id"`
 	DoctorID        string    `json:"doctor_id"`
+	PatientName     string    `json:"patient_name,omitempty"`
+	DoctorName      string    `json:"doctor_name,omitempty"`
 	AppointmentDate string    `json:"appointment_date"`
 	AppointmentTime string    `json:"appointment_time"`
 	Status          string    `json:"status"`

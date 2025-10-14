@@ -374,3 +374,19 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 
 	return users, rows.Err()
 }
+
+// FindDoctorIDByUserID returns the doctor.id for a given user_id
+func (r *SqliteUserRepository) FindDoctorIDByUserID(ctx context.Context, userID string) (string, error) {
+	query := `SELECT id FROM doctors WHERE user_id = ?`
+
+	var doctorID string
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&doctorID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New("doctor not found")
+		}
+		return "", err
+	}
+
+	return doctorID, nil
+}

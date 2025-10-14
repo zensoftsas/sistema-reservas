@@ -32,6 +32,9 @@ type UserRepository interface {
 
 	// GetAllDoctors retrieves all active doctors
 	GetAllDoctors(ctx context.Context) ([]*domain.User, error)
+
+	// FindDoctorIDByUserID returns the doctor.id for a given user_id
+	FindDoctorIDByUserID(ctx context.Context, userID string) (string, error)
 }
 
 // PatientRepository defines the interface for patient data persistence operations
@@ -131,4 +134,46 @@ type ScheduleRepository interface {
 
 	// Delete removes a schedule from the repository by its ID
 	Delete(ctx context.Context, id string) error
+}
+
+// ServiceRepository defines the interface for service data persistence operations
+type ServiceRepository interface {
+	// Create inserts a new service into the repository
+	Create(ctx context.Context, service *domain.Service) error
+
+	// FindByID retrieves a service by its unique identifier
+	FindByID(ctx context.Context, id string) (*domain.Service, error)
+
+	// ListActive retrieves all active services
+	ListActive(ctx context.Context) ([]*domain.Service, error)
+
+	// ListAll retrieves all services (active and inactive)
+	ListAll(ctx context.Context) ([]*domain.Service, error)
+
+	// Update modifies an existing service in the repository
+	Update(ctx context.Context, service *domain.Service) error
+
+	// Delete removes a service from the repository by its ID
+	Delete(ctx context.Context, id string) error
+}
+
+// DoctorServiceRepository defines the interface for doctor-service relationship data persistence operations
+type DoctorServiceRepository interface {
+	// Assign creates a relationship between a doctor and a service
+	Assign(ctx context.Context, doctorService *domain.DoctorService) error
+
+	// Remove removes a service assignment from a doctor
+	Remove(ctx context.Context, doctorID, serviceID string) error
+
+	// FindDoctorsByService returns all doctors that offer a specific service
+	FindDoctorsByService(ctx context.Context, serviceID string) ([]*domain.User, error)
+
+	// FindServicesByDoctor returns all services offered by a specific doctor
+	FindServicesByDoctor(ctx context.Context, doctorID string) ([]*domain.Service, error)
+
+	// IsAssigned checks if a doctor is assigned to a service
+	IsAssigned(ctx context.Context, doctorID, serviceID string) (bool, error)
+
+	// FindByDoctorAndService retrieves a specific doctor-service relationship
+	FindByDoctorAndService(ctx context.Context, doctorID, serviceID string) (*domain.DoctorService, error)
 }

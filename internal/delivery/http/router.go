@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -95,15 +95,37 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	// Doctor routes - public search endpoint
 	mux.HandleFunc("/api/doctors/search", doctorHandler.Search)
 
+	// Service routes
+	// Create service - POST /api/services (admin only)
+	createServiceHandler := http.HandlerFunc(serviceHandler.Create)
+	createServiceWithRole := middleware.RequireRole("admin")(createServiceHandler)
+	createServiceWithAuth := middleware.AuthMiddleware(jwtSecret)(createServiceWithRole)
+	mux.Handle("/api/services/create", createServiceWithAuth)
+
+	// List services - GET /api/services (public)
+	mux.HandleFunc("/api/services", serviceHandler.List)
+
+	// Assign service to doctor - POST /api/services/assign (admin only)
+	assignServiceHandler := http.HandlerFunc(serviceHandler.AssignToDoctor)
+	assignServiceWithRole := middleware.RequireRole("admin")(assignServiceHandler)
+	assignServiceWithAuth := middleware.AuthMiddleware(jwtSecret)(assignServiceWithRole)
+	mux.Handle("/api/services/assign", assignServiceWithAuth)
+
+	// Get doctors by service - GET /api/services/doctors?service_id=xxx (public)
+	mux.HandleFunc("/api/services/doctors", serviceHandler.GetDoctorsByService)
+
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Sistema de Reservas - API Running"))
 	})
 
-	// Apply middlewares in order: Recovery -> Logging -> Handlers
+	// Apply middlewares in order: CORS -> Recovery -> Logging -> Handlers
+	// CORS middleware must be first to handle preflight requests
+	withCORS := middleware.CORSMiddleware(mux)
+
 	// Recovery middleware wraps everything to catch panics
-	withRecovery := middleware.RecoveryMiddleware(mux)
+	withRecovery := middleware.RecoveryMiddleware(withCORS)
 
 	// Logging middleware wraps the recovery middleware to log all requests
 	withLogging := middleware.LoggingMiddleware(withRecovery)
