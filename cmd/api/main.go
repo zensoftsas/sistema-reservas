@@ -11,6 +11,7 @@ import (
 	"version-1-0/internal/usecase/appointment"
 	"version-1-0/internal/usecase/auth"
 	"version-1-0/internal/usecase/doctor"
+	"version-1-0/internal/usecase/schedule"
 	"version-1-0/internal/usecase/service"
 	"version-1-0/internal/usecase/user"
 	"version-1-0/pkg/email"
@@ -53,6 +54,7 @@ func main() {
 	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
 	serviceRepo := sqlite.NewSqliteServiceRepository(db)
 	doctorServiceRepo := sqlite.NewSqliteDoctorServiceRepository(db)
+	scheduleRepo := sqlite.NewSqliteScheduleRepository(db)
 
 	// Create email service
 	emailService := email.NewEmailService(
@@ -91,10 +93,15 @@ func main() {
 	listServicesUC := service.NewListServicesUseCase(serviceRepo)
 	assignServiceToDoctorUC := service.NewAssignServiceToDoctorUseCase(doctorServiceRepo, serviceRepo, userRepo)
 	getDoctorsByServiceUC := service.NewGetDoctorsByServiceUseCase(doctorServiceRepo, serviceRepo)
-	getAvailableSlotsUC := service.NewGetAvailableSlotsUseCase(serviceRepo, appointmentRepo, userRepo)
+	getAvailableSlotsUC := service.NewGetAvailableSlotsUseCase(serviceRepo, appointmentRepo, userRepo, scheduleRepo)
 
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
+
+	// Create schedule use cases
+	createScheduleUC := schedule.NewCreateScheduleUseCase(scheduleRepo, userRepo)
+	getSchedulesUC := schedule.NewGetDoctorSchedulesUseCase(scheduleRepo, userRepo)
+	deleteScheduleUC := schedule.NewDeleteScheduleUseCase(scheduleRepo)
 
 	// Create handlers
 	userHandler := handler.NewUserHandler(createUserUC, getUserUC, listUsersUC, updateUserUC, deleteUserUC)
@@ -102,9 +109,10 @@ func main() {
 	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC, confirmAppointmentUC, completeAppointmentUC, getHistoryUC)
 	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
 	serviceHandler := handler.NewServiceHandler(createServiceUC, listServicesUC, assignServiceToDoctorUC, getDoctorsByServiceUC, getAvailableSlotsUC)
+	scheduleHandler := handler.NewScheduleHandler(createScheduleUC, getSchedulesUC, deleteScheduleUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, scheduleHandler, cfg.JWTSecret)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -131,6 +139,9 @@ func main() {
 	fmt.Println("   POST   /api/services/assign      - Asignar servicio a doctor (solo admin)")
 	fmt.Println("   GET    /api/services/doctors?service_id= - Obtener doctores por servicio (público)")
 	fmt.Println("   GET    /api/services/available-slots?doctor_id=&service_id=&date= - Obtener slots disponibles (público)")
+	fmt.Println("   POST   /api/schedules            - Crear horario (admin)")
+	fmt.Println("   GET    /api/schedules/doctor/{id} - Ver horarios de doctor (público)")
+	fmt.Println("   DELETE /api/schedules/{id}       - Eliminar horario (admin)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

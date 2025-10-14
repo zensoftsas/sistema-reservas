@@ -8,7 +8,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, scheduleHandler *handler.ScheduleHandler, jwtSecret string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -116,6 +116,22 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 
 	// Get available slots - GET /api/services/available-slots?doctor_id=xxx&service_id=yyy&date=YYYY-MM-DD (public)
 	mux.HandleFunc("/api/services/available-slots", serviceHandler.GetAvailableSlots)
+
+	// Schedule routes
+	// Create schedule - POST /api/schedules (admin only)
+	createScheduleHandler := http.HandlerFunc(scheduleHandler.CreateSchedule)
+	createScheduleWithRole := middleware.RequireRole("admin")(createScheduleHandler)
+	createScheduleWithAuth := middleware.AuthMiddleware(jwtSecret)(createScheduleWithRole)
+	mux.Handle("/api/schedules", createScheduleWithAuth)
+
+	// Get doctor schedules - GET /api/schedules/doctor/{id} (public)
+	mux.HandleFunc("/api/schedules/doctor/{id}", scheduleHandler.GetDoctorSchedules)
+
+	// Delete schedule - DELETE /api/schedules/{id} (admin only)
+	deleteScheduleHandler := http.HandlerFunc(scheduleHandler.DeleteSchedule)
+	deleteScheduleWithRole := middleware.RequireRole("admin")(deleteScheduleHandler)
+	deleteScheduleWithAuth := middleware.AuthMiddleware(jwtSecret)(deleteScheduleWithRole)
+	mux.Handle("DELETE /api/schedules/{id}", deleteScheduleWithAuth)
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

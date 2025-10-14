@@ -2,133 +2,114 @@ package domain
 
 import (
 	"errors"
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 )
 
-// DayOfWeek represents a day of the week
-type DayOfWeek string
-
-// Day of week constants
-const (
-	Monday    DayOfWeek = "monday"
-	Tuesday   DayOfWeek = "tuesday"
-	Wednesday DayOfWeek = "wednesday"
-	Thursday  DayOfWeek = "thursday"
-	Friday    DayOfWeek = "friday"
-	Saturday  DayOfWeek = "saturday"
-	Sunday    DayOfWeek = "sunday"
-)
-
-// Schedule represents a doctor's schedule configuration in the medical reservation system
+// Schedule represents a doctor's working schedule for a specific day
 type Schedule struct {
 	ID           string    `json:"id"`
 	DoctorID     string    `json:"doctor_id"`
-	DayOfWeek    DayOfWeek `json:"day_of_week"`
-	StartTime    string    `json:"start_time"` // Format: "HH:MM"
-	EndTime      string    `json:"end_time"`   // Format: "HH:MM"
-	SlotDuration int       `json:"slot_duration"` // in minutes
+	DayOfWeek    string    `json:"day_of_week"`    // monday, tuesday, etc.
+	StartTime    string    `json:"start_time"`     // HH:MM format
+	EndTime      string    `json:"end_time"`       // HH:MM format
+	SlotDuration int       `json:"slot_duration"`  // Minutes per slot
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
-// Validate checks if the Schedule entity has all required fields properly set
-// Returns an error if any validation rule fails
+// DayOfWeek constants
+const (
+	Monday    = "monday"
+	Tuesday   = "tuesday"
+	Wednesday = "wednesday"
+	Thursday  = "thursday"
+	Friday    = "friday"
+	Saturday  = "saturday"
+	Sunday    = "sunday"
+)
+
+// ValidDaysOfWeek contains all valid day names
+var ValidDaysOfWeek = []string{
+	Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday,
+}
+
+// Validate validates the schedule data
 func (s *Schedule) Validate() error {
-	if strings.TrimSpace(s.ID) == "" {
-		return errors.New("schedule ID is required")
+	if s.DoctorID == "" {
+		return errors.New("doctor_id is required")
 	}
 
-	if strings.TrimSpace(s.DoctorID) == "" {
-		return errors.New("schedule doctor ID is required")
+	// Validate day of week
+	validDay := false
+	for _, day := range ValidDaysOfWeek {
+		if s.DayOfWeek == day {
+			validDay = true
+			break
+		}
+	}
+	if !validDay {
+		return errors.New("invalid day_of_week, must be monday-sunday")
 	}
 
-	if !IsValidDayOfWeek(string(s.DayOfWeek)) {
-		return errors.New("invalid day of week")
+	// Validate time format
+	if !isValidTimeFormat(s.StartTime) {
+		return errors.New("start_time must be in HH:MM format")
+	}
+	if !isValidTimeFormat(s.EndTime) {
+		return errors.New("end_time must be in HH:MM format")
 	}
 
-	if !IsValidTimeFormat(s.StartTime) {
-		return errors.New("invalid start time format, must be HH:MM")
-	}
-
-	if !IsValidTimeFormat(s.EndTime) {
-		return errors.New("invalid end time format, must be HH:MM")
-	}
-
-	// Compare start time and end time
-	startMinutes, _ := parseTimeToMinutes(s.StartTime)
-	endMinutes, _ := parseTimeToMinutes(s.EndTime)
-
-	if startMinutes >= endMinutes {
-		return errors.New("start time must be before end time")
+	// Validate start < end
+	start, _ := time.Parse("15:04", s.StartTime)
+	end, _ := time.Parse("15:04", s.EndTime)
+	if !start.Before(end) {
+		return errors.New("start_time must be before end_time")
 	}
 
 	if s.SlotDuration <= 0 {
-		return errors.New("slot duration must be greater than 0")
-	}
-
-	if s.CreatedAt.IsZero() {
-		return errors.New("schedule created at is required")
-	}
-
-	if s.UpdatedAt.IsZero() {
-		return errors.New("schedule updated at is required")
+		return errors.New("slot_duration must be greater than 0")
 	}
 
 	return nil
 }
 
-// TotalSlots calculates how many appointment slots fit between StartTime and EndTime
-// based on the SlotDuration
-func (s *Schedule) TotalSlots() int {
-	startMinutes, err := parseTimeToMinutes(s.StartTime)
-	if err != nil {
-		return 0
-	}
-
-	endMinutes, err := parseTimeToMinutes(s.EndTime)
-	if err != nil {
-		return 0
-	}
-
-	totalMinutes := endMinutes - startMinutes
-	if totalMinutes <= 0 {
-		return 0
-	}
-
-	return totalMinutes / s.SlotDuration
+// Activate activates the schedule
+func (s *Schedule) Activate() {
+	s.IsActive = true
+	s.UpdatedAt = time.Now()
 }
 
-// IsValidTimeFormat verifies if a time string is in valid "HH:MM" format
-// Hours must be 00-23, minutes must be 00-59
-func IsValidTimeFormat(timeStr string) bool {
-	// Regular expression to match HH:MM format
-	pattern := `^([0-1][0-9]|2[0-3]):([0-5][0-9])$`
-	matched, _ := regexp.MatchString(pattern, timeStr)
-	return matched
+// Deactivate deactivates the schedule
+func (s *Schedule) Deactivate() {
+	s.IsActive = false
+	s.UpdatedAt = time.Now()
 }
 
-// IsValidDayOfWeek checks if a given string is a valid DayOfWeek
-func IsValidDayOfWeek(day string) bool {
-	d := DayOfWeek(strings.ToLower(day))
-	return d == Monday || d == Tuesday || d == Wednesday || d == Thursday ||
-		d == Friday || d == Saturday || d == Sunday
+// isValidTimeFormat checks if a time string is in HH:MM format
+func isValidTimeFormat(timeStr string) bool {
+	_, err := time.Parse("15:04", timeStr)
+	return err == nil
 }
 
-// parseTimeToMinutes converts a time string in "HH:MM" format to total minutes since midnight
-// Returns the number of minutes and an error if the format is invalid
-func parseTimeToMinutes(timeStr string) (int, error) {
-	if !IsValidTimeFormat(timeStr) {
-		return 0, fmt.Errorf("invalid time format: %s", timeStr)
+// GetDayOfWeekFromDate returns the day of week name for a given date
+func GetDayOfWeekFromDate(date time.Time) string {
+	switch date.Weekday() {
+	case time.Monday:
+		return Monday
+	case time.Tuesday:
+		return Tuesday
+	case time.Wednesday:
+		return Wednesday
+	case time.Thursday:
+		return Thursday
+	case time.Friday:
+		return Friday
+	case time.Saturday:
+		return Saturday
+	case time.Sunday:
+		return Sunday
+	default:
+		return ""
 	}
-
-	parts := strings.Split(timeStr, ":")
-	hours, _ := strconv.Atoi(parts[0])
-	minutes, _ := strconv.Atoi(parts[1])
-
-	return hours*60 + minutes, nil
 }

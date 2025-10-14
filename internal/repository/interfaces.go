@@ -118,25 +118,28 @@ type AppointmentRepository interface {
 	MarkReminder1hSent(ctx context.Context, id string) error
 }
 
-// ScheduleRepository defines the interface for schedule data persistence operations
+// ScheduleRepository defines methods for schedule data access
 type ScheduleRepository interface {
-	// Create inserts a new schedule into the repository
+	// Create creates a new schedule
 	Create(ctx context.Context, schedule *domain.Schedule) error
 
-	// FindByID retrieves a schedule by its unique identifier
+	// FindByID finds a schedule by ID
 	FindByID(ctx context.Context, id string) (*domain.Schedule, error)
 
-	// FindByDoctorID retrieves all schedules for a specific doctor
-	FindByDoctorID(ctx context.Context, doctorID string) ([]*domain.Schedule, error)
+	// FindByDoctorAndDay finds schedules for a doctor on a specific day
+	FindByDoctorAndDay(ctx context.Context, doctorID, dayOfWeek string) ([]*domain.Schedule, error)
 
-	// FindByDoctorAndDay retrieves a doctor's schedule for a specific day of the week
-	FindByDoctorAndDay(ctx context.Context, doctorID string, day domain.DayOfWeek) (*domain.Schedule, error)
+	// FindByDoctor finds all schedules for a doctor
+	FindByDoctor(ctx context.Context, doctorID string) ([]*domain.Schedule, error)
 
-	// Update modifies an existing schedule in the repository
+	// Update updates a schedule
 	Update(ctx context.Context, schedule *domain.Schedule) error
 
-	// Delete removes a schedule from the repository by its ID
+	// Delete deletes a schedule
 	Delete(ctx context.Context, id string) error
+
+	// DeleteByDoctorAndDay deletes all schedules for a doctor on a specific day
+	DeleteByDoctorAndDay(ctx context.Context, doctorID, dayOfWeek string) error
 }
 
 // ServiceRepository defines the interface for service data persistence operations

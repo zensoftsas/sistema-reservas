@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"version-1-0/internal/domain"
 	"version-1-0/internal/repository"
 )
 
@@ -19,6 +20,7 @@ type GetAvailableSlotsUseCase struct {
 	serviceRepo     repository.ServiceRepository
 	appointmentRepo repository.AppointmentRepository
 	userRepo        repository.UserRepository
+	scheduleRepo    repository.ScheduleRepository
 }
 
 // NewGetAvailableSlotsUseCase creates a new instance
@@ -26,11 +28,13 @@ func NewGetAvailableSlotsUseCase(
 	serviceRepo repository.ServiceRepository,
 	appointmentRepo repository.AppointmentRepository,
 	userRepo repository.UserRepository,
+	scheduleRepo repository.ScheduleRepository,
 ) *GetAvailableSlotsUseCase {
 	return &GetAvailableSlotsUseCase{
 		serviceRepo:     serviceRepo,
 		appointmentRepo: appointmentRepo,
 		userRepo:        userRepo,
+		scheduleRepo:    scheduleRepo,
 	}
 }
 
@@ -68,13 +72,39 @@ func (uc *GetAvailableSlotsUseCase) Execute(ctx context.Context, userID, service
 		return nil, errors.New("service not found")
 	}
 
-	// TODO: Get doctor's schedule for this day of week
-	// For now, use a default schedule: 9:00 AM to 5:00 PM
-	startHour := 9
-	endHour := 17
+	// Get doctor's schedule for this day of week
+	dayOfWeek := domain.GetDayOfWeekFromDate(date)
+	schedules, err := uc.scheduleRepo.FindByDoctorAndDay(ctx, doctorID, dayOfWeek)
+	if err != nil {
+		return nil, err
+	}
 
-	// Generate time slots based on service duration
-	slots := generateTimeSlots(startHour, endHour, service.DurationMinutes)
+	// If doctor doesn't work this day, return empty slots
+	if len(schedules) == 0 {
+		return []TimeSlot{}, nil
+	}
+
+	// Generate slots for each schedule block
+	var allSlots []TimeSlot
+	for _, sched := range schedules {
+		// Parse start and end times
+		start, _ := time.Parse("15:04", sched.StartTime)
+		end, _ := time.Parse("15:04", sched.EndTime)
+
+		startHour := start.Hour()
+		startMinute := start.Minute()
+		endHour := end.Hour()
+		endMinute := end.Minute()
+
+		startMinutes := startHour*60 + startMinute
+		endMinutes := endHour*60 + endMinute
+
+		// Generate slots for this schedule block
+		slots := generateTimeSlotsFromMinutes(startMinutes, endMinutes, service.DurationMinutes)
+		allSlots = append(allSlots, slots...)
+	}
+
+	slots := allSlots
 
 	// Get existing appointments for this doctor on this date
 	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
@@ -141,4 +171,26 @@ func formatTime(hours, minutes int) string {
 func parseTimeSlot(date time.Time, timeStr string) time.Time {
 	t, _ := time.Parse("15:04", timeStr)
 	return time.Date(date.Year(), date.Month(), date.Day(), t.Hour(), t.Minute(), 0, 0, date.Location())
+}
+
+// generateTimeSlotsFromMinutes creates time slots from start to end minutes with given duration
+func generateTimeSlotsFromMinutes(startMinutes, endMinutes, durationMinutes int) []TimeSlot {
+	var slots []TimeSlot
+
+	currentMinutes := startMinutes
+
+	for currentMinutes < endMinutes {
+		hours := currentMinutes / 60
+		minutes := currentMinutes % 60
+		timeStr := formatTime(hours, minutes)
+
+		slots = append(slots, TimeSlot{
+			Time:      timeStr,
+			Available: false,
+		})
+
+		currentMinutes += durationMinutes
+	}
+
+	return slots
 }
