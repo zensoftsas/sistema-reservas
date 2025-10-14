@@ -99,6 +99,32 @@ version-1-0/
 
 ## 🔌 API Endpoints
 
+### 📍 Resumen de Endpoints
+
+**Autenticación:**
+- `POST   /api/auth/login`                            - Login y obtener token JWT
+
+**Usuarios:**
+- `POST   /api/users`                                 - Crear usuario (público)
+- `GET    /api/users?id=`                             - Obtener usuario por ID (público)
+- `GET    /api/users/me`                              - Obtener perfil autenticado (requiere token)
+- `GET    /api/users/list`                            - Listar usuarios (admin)
+
+**Citas:**
+- `POST   /api/appointments`                          - Crear cita [requiere service_id] (autenticado)
+- `GET    /api/appointments/my`                       - Mis citas (autenticado)
+- `GET    /api/appointments/doctor`                   - Citas del doctor (doctor)
+- `PUT    /api/appointments/cancel`                   - Cancelar cita (autenticado)
+
+**Servicios Médicos:**
+- `POST   /api/services/create`                       - Crear servicio (admin)
+- `GET    /api/services`                              - Listar servicios activos (público)
+- `POST   /api/services/assign`                       - Asignar servicio a doctor (admin)
+- `GET    /api/services/doctors?service_id=`          - Doctores que ofrecen servicio (público)
+- `GET    /api/services/available-slots?doctor_id=&service_id=&date=` - Horarios disponibles (público)
+
+---
+
 ### Health Check
 
 ```
@@ -766,6 +792,289 @@ El frontend de este proyecto está en un repositorio separado:
 
 ---
 
+## 🏥 Sistema de Servicios Médicos
+
+### Descripción
+El sistema permite gestionar servicios/consultas médicas con diferentes duraciones y precios. Cada servicio puede ser ofrecido por múltiples doctores (relación many-to-many), y los pacientes pueden reservar citas seleccionando el servicio deseado.
+
+### Flujo de Reserva de Citas
+```
+1. Paciente selecciona SERVICIO
+   GET /api/services
+   → Lista de servicios disponibles (Consulta General, Cardiológica, etc.)
+
+2. Sistema muestra DOCTORES que ofrecen ese servicio
+   GET /api/services/doctors?service_id={id}
+   → Lista de doctores disponibles para el servicio
+
+3. Paciente selecciona DOCTOR y FECHA
+
+4. Sistema calcula HORARIOS DISPONIBLES
+   GET /api/services/available-slots?doctor_id={id}&service_id={id}&date=YYYY-MM-DD
+   → Slots de tiempo basados en duración del servicio
+   → Marcados como disponibles/ocupados
+
+5. Paciente selecciona HORARIO y confirma
+   POST /api/appointments
+   → Cita creada con service_id
+   → Duración automática del servicio
+```
+
+### Endpoints de Servicios
+
+#### 1. Crear Servicio (Admin)
+```bash
+POST /api/services/create
+Authorization: Bearer {admin-token}
+
+Request:
+{
+  "name": "Consulta Cardiológica",
+  "description": "Evaluación cardiovascular completa",
+  "duration_minutes": 45,
+  "price": 150.00
+}
+
+Response (201):
+{
+  "id": "uuid",
+  "name": "Consulta Cardiológica",
+  "duration_minutes": 45,
+  "price": 150,
+  "is_active": true,
+  "created_at": "2025-10-14T11:15:44-05:00"
+}
+```
+
+#### 2. Listar Servicios Activos (Público)
+```bash
+GET /api/services
+
+Response (200):
+[
+  {
+    "id": "uuid",
+    "name": "Consulta General",
+    "description": "Consulta médica general",
+    "duration_minutes": 30,
+    "price": 80,
+    "is_active": true
+  },
+  ...
+]
+```
+
+#### 3. Asignar Servicio a Doctor (Admin)
+```bash
+POST /api/services/assign
+Authorization: Bearer {admin-token}
+
+Request:
+{
+  "doctor_id": "user-uuid",
+  "service_id": "service-uuid"
+}
+
+Response (200):
+{
+  "message": "Service assigned to doctor successfully"
+}
+```
+
+#### 4. Ver Doctores que Ofrecen un Servicio (Público)
+```bash
+GET /api/services/doctors?service_id={uuid}
+
+Response (200):
+[
+  {
+    "id": "user-uuid",
+    "email": "dr.garcia@clinica.com",
+    "first_name": "Dr. Ana",
+    "last_name": "García",
+    "role": "doctor",
+    "is_active": true
+  },
+  ...
+]
+```
+
+#### 5. Ver Horarios Disponibles (Público) ⭐
+```bash
+GET /api/services/available-slots?doctor_id={user-uuid}&service_id={uuid}&date=2025-10-20
+
+Response (200):
+[
+  {"time": "09:00", "available": true},
+  {"time": "09:45", "available": true},
+  {"time": "10:30", "available": false},  // Ocupado
+  {"time": "11:15", "available": true},
+  ...
+]
+```
+
+### Creación de Citas con Servicios
+
+**Endpoint actualizado:**
+```bash
+POST /api/appointments
+Authorization: Bearer {patient-token}
+
+Request:
+{
+  "doctor_id": "user-uuid",
+  "service_id": "service-uuid",      // NUEVO - Obligatorio
+  "appointment_date": "2025-10-20",
+  "appointment_time": "10:30",
+  "reason": "Consulta de seguimiento"
+}
+
+Response (201):
+{
+  "id": "appointment-uuid",
+  "patient_id": "patient-uuid",
+  "doctor_id": "doctor-real-id",
+  "service_id": "service-uuid",
+  "service_name": "Consulta Cardiológica",  // Nombre del servicio
+  "scheduled_at": "2025-10-20T10:30:00Z",
+  "duration": 45,                            // Del servicio automáticamente
+  "reason": "Consulta de seguimiento",
+  "status": "pending",
+  "created_at": "2025-10-14T12:42:00Z"
+}
+```
+
+### Validaciones Implementadas
+
+Al crear una cita:
+- ✅ `service_id` es obligatorio
+- ✅ El servicio debe existir y estar activo
+- ✅ El doctor debe ofrecer ese servicio (validación en BD)
+- ✅ El horario debe estar disponible (sin conflictos)
+- ✅ La duración se toma automáticamente del servicio
+- ✅ Se usa el `doctor.id` real (no el `user.id`)
+
+### Arquitectura de Base de Datos
+```sql
+-- Tabla de servicios
+CREATE TABLE services (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    duration_minutes INTEGER NOT NULL,
+    price REAL NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
+
+-- Tabla de relación many-to-many
+CREATE TABLE doctor_services (
+    id TEXT PRIMARY KEY,
+    doctor_id TEXT NOT NULL,           -- doctor.id (no user.id)
+    service_id TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    FOREIGN KEY (service_id) REFERENCES services(id),
+    UNIQUE(doctor_id, service_id)
+);
+
+-- Appointments actualizada
+ALTER TABLE appointments ADD COLUMN service_id TEXT REFERENCES services(id);
+```
+
+### Algoritmo de Cálculo de Slots Disponibles
+```
+Input:
+  - doctor_id (user_id del doctor)
+  - service_id
+  - date (YYYY-MM-DD)
+
+Proceso:
+  1. Obtener doctor.id real de la tabla doctors
+  2. Obtener duración del servicio (ej: 45 minutos)
+  3. Generar slots de 9:00 AM a 5:00 PM con esa duración
+  4. Consultar citas existentes del doctor en esa fecha
+  5. Para cada slot:
+     - Verificar si hay overlap con citas existentes
+     - Marcar como available=true/false
+  6. Retornar lista de slots con disponibilidad
+
+Output:
+  Lista de TimeSlots con hora y estado de disponibilidad
+```
+
+### Casos de Uso Implementados
+```go
+// Servicios
+- CreateServiceUseCase
+- ListServicesUseCase
+- AssignServiceToDoctorUseCase
+- GetDoctorsByServiceUseCase
+- GetAvailableSlotsUseCase  // Más complejo
+
+// Citas (actualizado)
+- CreateAppointmentUseCase  // Ahora incluye service_id
+```
+
+### Testing del Sistema
+```bash
+# 1. Login como admin
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@clinica.com","password":"admin123"}'
+
+# 2. Crear servicio
+curl -X POST http://localhost:8080/api/services/create \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Consulta General",
+    "duration_minutes": 30,
+    "price": 80
+  }'
+
+# 3. Asignar servicio a doctor
+curl -X POST http://localhost:8080/api/services/assign \
+  -H "Authorization: Bearer {token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doctor_id": "{user-uuid}",
+    "service_id": "{service-uuid}"
+  }'
+
+# 4. Login como paciente
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"paciente@email.com","password":"password"}'
+
+# 5. Ver servicios disponibles
+curl http://localhost:8080/api/services
+
+# 6. Ver doctores que ofrecen un servicio
+curl "http://localhost:8080/api/services/doctors?service_id={uuid}"
+
+# 7. Ver horarios disponibles
+curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&service_id={uuid}&date=2025-10-20"
+
+# 8. Crear cita
+curl -X POST http://localhost:8080/api/appointments \
+  -H "Authorization: Bearer {patient-token}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doctor_id": "{uuid}",
+    "service_id": "{uuid}",
+    "appointment_date": "2025-10-20",
+    "appointment_time": "10:30",
+    "reason": "Consulta"
+  }'
+
+# 9. Verificar que slot ahora está ocupado
+curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&service_id={uuid}&date=2025-10-20"
+```
+
+---
+
 ## 🏗️ Decisiones de Arquitectura
 
 ### Sesiones de Desarrollo:
@@ -774,6 +1083,7 @@ El frontend de este proyecto está en un repositorio separado:
 - **Sesión 4:** Sistema de Citas (Create, Get, Cancel)
 - **Sesión 5:** Confirm/Complete Citas + Historial Médico + Búsqueda Doctores
 - **Sesión 6:** Notificaciones Email (SendGrid) + Recordatorios Automáticos
+- **Sesión 7:** Sistema de Servicios + Slots Disponibles + Integración Completa
 
 ### Tecnologías Elegidas:
 - **Go 1.21+** - Performance y concurrencia
@@ -789,6 +1099,10 @@ El frontend de este proyecto está en un repositorio separado:
 - Domain modeling → ScheduledAt en lugar de date/time separados
 - Email anti-spam → Single Sender Verification
 - Recordatorios duplicados → Campos reminder_24h_sent, reminder_1h_sent
+- **Sistema de servicios con many-to-many:** Relación doctor_services usando doctor.id real (no user.id)
+- **Cálculo de slots disponibles:** Algoritmo que genera slots basados en duración del servicio y detecta conflictos
+- **Validación de asignaciones:** Doctor debe ofrecer el servicio antes de crear cita
+- **Duración automática:** La duración de la cita se obtiene del servicio, no es manual
 
 ---
 
