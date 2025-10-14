@@ -156,6 +156,18 @@ func (r *SqliteAppointmentRepository) FindByDoctorAndDate(ctx context.Context, d
 	return r.queryAppointments(ctx, query, doctorID, date.Format(time.RFC3339))
 }
 
+// FindByDoctorAndDateRange retrieves appointments for a doctor within a date range
+func (r *SqliteAppointmentRepository) FindByDoctorAndDateRange(ctx context.Context, doctorID string, start, end time.Time) ([]*domain.Appointment, error) {
+	query := `
+		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
+		FROM appointments
+		WHERE doctor_id = ? AND scheduled_at >= ? AND scheduled_at < ?
+		ORDER BY scheduled_at ASC
+	`
+
+	return r.queryAppointments(ctx, query, doctorID, start.Format(time.RFC3339), end.Format(time.RFC3339))
+}
+
 // Update modifies an existing appointment in the database
 func (r *SqliteAppointmentRepository) Update(ctx context.Context, appointment *domain.Appointment) error {
 	query := `

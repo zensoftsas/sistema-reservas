@@ -91,6 +91,7 @@ func main() {
 	listServicesUC := service.NewListServicesUseCase(serviceRepo)
 	assignServiceToDoctorUC := service.NewAssignServiceToDoctorUseCase(doctorServiceRepo, serviceRepo, userRepo)
 	getDoctorsByServiceUC := service.NewGetDoctorsByServiceUseCase(doctorServiceRepo, serviceRepo)
+	getAvailableSlotsUC := service.NewGetAvailableSlotsUseCase(serviceRepo, appointmentRepo, userRepo)
 
 	// Create auth use cases
 	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
@@ -100,7 +101,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(loginUC)
 	appointmentHandler := handler.NewAppointmentHandler(createAppointmentUC, getByPatientUC, getByDoctorUC, cancelAppointmentUC, confirmAppointmentUC, completeAppointmentUC, getHistoryUC)
 	doctorHandler := handler.NewDoctorHandler(searchDoctorsUC)
-	serviceHandler := handler.NewServiceHandler(createServiceUC, listServicesUC, assignServiceToDoctorUC, getDoctorsByServiceUC)
+	serviceHandler := handler.NewServiceHandler(createServiceUC, listServicesUC, assignServiceToDoctorUC, getDoctorsByServiceUC, getAvailableSlotsUC)
 
 	// Configure router
 	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, cfg.JWTSecret)
@@ -129,6 +130,7 @@ func main() {
 	fmt.Println("   GET    /api/services             - Listar servicios activos (público)")
 	fmt.Println("   POST   /api/services/assign      - Asignar servicio a doctor (solo admin)")
 	fmt.Println("   GET    /api/services/doctors?service_id= - Obtener doctores por servicio (público)")
+	fmt.Println("   GET    /api/services/available-slots?doctor_id=&service_id=&date= - Obtener slots disponibles (público)")
 	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
 
 	// Start HTTP server

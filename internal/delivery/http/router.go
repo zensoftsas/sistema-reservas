@@ -114,6 +114,9 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	// Get doctors by service - GET /api/services/doctors?service_id=xxx (public)
 	mux.HandleFunc("/api/services/doctors", serviceHandler.GetDoctorsByService)
 
+	// Get available slots - GET /api/services/available-slots?doctor_id=xxx&service_id=yyy&date=YYYY-MM-DD (public)
+	mux.HandleFunc("/api/services/available-slots", serviceHandler.GetAvailableSlots)
+
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

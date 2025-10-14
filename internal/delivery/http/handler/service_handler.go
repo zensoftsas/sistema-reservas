@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"version-1-0/internal/usecase/service"
 )
@@ -14,6 +15,7 @@ type ServiceHandler struct {
 	listServicesUC          *service.ListServicesUseCase
 	assignServiceToDoctorUC *service.AssignServiceToDoctorUseCase
 	getDoctorsByServiceUC   *service.GetDoctorsByServiceUseCase
+	getAvailableSlotsUC     *service.GetAvailableSlotsUseCase
 }
 
 // NewServiceHandler creates a new instance of ServiceHandler
@@ -22,12 +24,14 @@ func NewServiceHandler(
 	listServicesUC *service.ListServicesUseCase,
 	assignServiceToDoctorUC *service.AssignServiceToDoctorUseCase,
 	getDoctorsByServiceUC *service.GetDoctorsByServiceUseCase,
+	getAvailableSlotsUC *service.GetAvailableSlotsUseCase,
 ) *ServiceHandler {
 	return &ServiceHandler{
 		createServiceUC:         createServiceUC,
 		listServicesUC:          listServicesUC,
 		assignServiceToDoctorUC: assignServiceToDoctorUC,
 		getDoctorsByServiceUC:   getDoctorsByServiceUC,
+		getAvailableSlotsUC:     getAvailableSlotsUC,
 	}
 }
 
@@ -168,4 +172,52 @@ func (h *ServiceHandler) GetDoctorsByService(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(doctors)
+}
+
+// GetAvailableSlots handles GET /api/services/available-slots (public)
+func (h *ServiceHandler) GetAvailableSlots(w http.ResponseWriter, r *http.Request) {
+	// Verify HTTP method is GET
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get query parameters
+	doctorID := r.URL.Query().Get("doctor_id")
+	serviceID := r.URL.Query().Get("service_id")
+	dateStr := r.URL.Query().Get("date")
+
+	// Validate parameters
+	if doctorID == "" {
+		http.Error(w, "doctor_id is required", http.StatusBadRequest)
+		return
+	}
+	if serviceID == "" {
+		http.Error(w, "service_id is required", http.StatusBadRequest)
+		return
+	}
+	if dateStr == "" {
+		http.Error(w, "date is required (format: YYYY-MM-DD)", http.StatusBadRequest)
+		return
+	}
+
+	// Parse date
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		http.Error(w, "Invalid date format, use YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	// Get available slots
+	ctx := context.Background()
+	slots, err := h.getAvailableSlotsUC.Execute(ctx, doctorID, serviceID, date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(slots)
 }
