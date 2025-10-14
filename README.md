@@ -1590,6 +1590,9 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Dashboard administrativo:** KPIs en tiempo real (citas, ingresos, tasas de cancelación)
 - **Rankings dinámicos:** Top doctores y servicios con límites configurables
 - **Seguridad en analytics:** Solo administradores acceden a métricas del negocio
+- **Bug crítico de service_id:** AppointmentRepository.Create() no guardaba service_id en BD - Corregido agregando el campo al INSERT
+- **Queries de analytics optimizadas:** Uso de COUNT, SUM, GROUP BY y JOIN para agregaciones eficientes
+- **Métricas en tiempo real:** Dashboard calcula KPIs desde BD sin caché
 
 ---
 
