@@ -18,7 +18,8 @@ El proyecto implementa **Clean Architecture** con las siguientes capas:
 ## 🛠️ Tecnologías
 
 - **Go 1.24.3**: Lenguaje de programación
-- **SQLite**: Base de datos embebida
+- **PostgreSQL (Neon)**: Base de datos serverless en la nube
+- **pgx/v5**: Driver PostgreSQL para Go
 - **bcrypt**: Hash seguro de contraseñas
 - **UUID**: Generación de identificadores únicos
 - **net/http**: Servidor HTTP estándar de Go
@@ -1297,6 +1298,387 @@ internal/
 
 ---
 
+## 🐘 Migración a PostgreSQL + Neon
+
+### Base de Datos en la Nube
+
+El sistema migró de **SQLite** (base de datos embebida) a **PostgreSQL** con **Neon** como proveedor serverless en la nube.
+
+**Neon** es una plataforma de PostgreSQL serverless que ofrece:
+- Base de datos PostgreSQL totalmente administrada
+- Escalamiento automático
+- Branching de bases de datos (útil para desarrollo/staging)
+- Hosting en AWS con alta disponibilidad
+- Tier gratuito generoso para desarrollo
+
+### ¿Por qué PostgreSQL + Neon?
+
+**Ventajas sobre SQLite:**
+- ✅ **Production-ready**: Diseñado para aplicaciones en producción
+- ✅ **Concurrencia**: Soporta múltiples conexiones simultáneas
+- ✅ **Tipos nativos**: BOOLEAN, TIMESTAMP, JSON, UUID nativos
+- ✅ **Escalabilidad**: Crece con tu aplicación
+- ✅ **Integridad**: Constraints y transactions robustas
+- ✅ **Respaldos**: Backups automáticos y point-in-time recovery
+- ✅ **Serverless**: No necesitas administrar infraestructura
+
+**Neon específicamente:**
+- 🚀 **Instant setup**: Base de datos lista en segundos
+- 💰 **Free tier**: 0.5 GB storage, 1 proyecto
+- 🌿 **Branching**: Crea copias de BD para testing
+- 📊 **Dashboard**: Monitoreo visual de queries y rendimiento
+- 🔒 **Seguridad**: SSL/TLS por defecto
+
+### Configuración
+
+**1. Crear cuenta en Neon:**
+```bash
+# Visita https://neon.tech
+# Crear cuenta (GitHub/Google login disponible)
+# Crear nuevo proyecto
+```
+
+**2. Obtener Connection String:**
+```
+Dashboard → Project → Connection Details → Connection String
+
+Formato:
+postgres://[user]:[password]@[host]/[database]?sslmode=require
+```
+
+**3. Configurar variable de entorno:**
+```bash
+# Linux/Mac
+export DATABASE_URL="postgres://user:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require"
+
+# Windows
+set DATABASE_URL=postgres://user:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+
+# .env file (recomendado)
+DATABASE_URL=postgres://user:password@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+**4. Instalar driver pgx:**
+```bash
+go get github.com/jackc/pgx/v5/stdlib
+```
+
+### Migraciones
+
+Las migraciones se ejecutan automáticamente al iniciar el servidor:
+
+```go
+// internal/repository/sqlite/connection.go ahora es postgresql
+func InitDB() (*sql.DB, error) {
+    connStr := os.Getenv("DATABASE_URL")
+    db, err := sql.Open("pgx", connStr)
+    if err != nil {
+        return nil, err
+    }
+
+    // Ejecuta migraciones
+    if err := runMigrations(db); err != nil {
+        return nil, err
+    }
+
+    return db, nil
+}
+```
+
+**Archivos de migración:**
+```
+migrations/
+├── 001_create_users.sql
+├── 002_create_patients.sql
+├── 003_create_doctors.sql
+├── 004_create_appointments.sql
+├── 005_create_schedules.sql
+├── 006_create_services.sql
+└── 007_create_doctor_services.sql
+```
+
+### Driver PostgreSQL
+
+**pgx/v5** es el driver recomendado para PostgreSQL en Go:
+
+```go
+import (
+    "database/sql"
+    _ "github.com/jackc/pgx/v5/stdlib"
+)
+
+// Conexión
+db, err := sql.Open("pgx", connectionString)
+```
+
+**Ventajas de pgx:**
+- ⚡ Alto rendimiento (más rápido que lib/pq)
+- 🔧 Soporte completo de PostgreSQL
+- 📦 Interfaz database/sql estándar
+- 🛡️ Prepared statements automáticos
+- 🔄 Connection pooling integrado
+
+### Diferencias con SQLite
+
+**Cambios en SQL:**
+
+| SQLite | PostgreSQL |
+|--------|------------|
+| `?` placeholders | `$1, $2, $3` placeholders |
+| `INTEGER` para bool | `BOOLEAN` nativo |
+| `DATETIME` | `TIMESTAMP` nativo |
+| `AUTOINCREMENT` | `SERIAL` o `IDENTITY` |
+| Tipos flexibles | Tipos estrictos |
+
+**Ejemplo de migración de query:**
+
+```go
+// ❌ SQLite
+query := `
+    INSERT INTO users (id, email, is_active, created_at)
+    VALUES (?, ?, ?, ?)
+`
+db.Exec(query, id, email, 1, time.Now()) // is_active como INTEGER
+
+// ✅ PostgreSQL
+query := `
+    INSERT INTO users (id, email, is_active, created_at)
+    VALUES ($1, $2, $3, $4)
+`
+db.Exec(query, id, email, true, time.Now()) // is_active como BOOLEAN
+```
+
+**Tipos de datos actualizados:**
+
+```sql
+-- SQLite
+is_active INTEGER DEFAULT 1
+created_at DATETIME
+
+-- PostgreSQL
+is_active BOOLEAN DEFAULT true
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+```
+
+### Conexión y Pooling
+
+**Configuración de connection pool:**
+
+```go
+func InitDB() (*sql.DB, error) {
+    db, err := sql.Open("pgx", os.Getenv("DATABASE_URL"))
+    if err != nil {
+        return nil, err
+    }
+
+    // Connection pool settings
+    db.SetMaxOpenConns(25)        // Máximo 25 conexiones abiertas
+    db.SetMaxIdleConns(5)         // Mantener 5 conexiones idle
+    db.SetConnMaxLifetime(5 * time.Minute)  // Reciclar cada 5 min
+
+    // Verificar conexión
+    if err := db.Ping(); err != nil {
+        return nil, fmt.Errorf("cannot ping database: %w", err)
+    }
+
+    return db, nil
+}
+```
+
+**Valores recomendados para Neon free tier:**
+- `MaxOpenConns`: 20-25 (Neon limita a ~100)
+- `MaxIdleConns`: 5
+- `ConnMaxLifetime`: 5 minutos
+
+### Branching (Opcional)
+
+**Crear branch para testing:**
+
+```bash
+# Desde Neon Dashboard
+1. Ir a Branches
+2. Click "Create Branch"
+3. Nombrar (ej: "dev", "staging")
+4. Copiar nueva connection string
+
+# Usar en desarrollo
+export DATABASE_URL_DEV="postgres://...branch-dev..."
+```
+
+**Casos de uso:**
+- Testing de migraciones sin afectar producción
+- Desarrollo paralelo de features
+- QA/Staging environment
+- Rollback rápido
+
+### Backup y Restore
+
+**Backup automático (Neon):**
+- Neon hace backups automáticos cada 24h
+- Retención: 7 días (free tier)
+- Point-in-time recovery disponible
+
+**Backup manual con pg_dump:**
+
+```bash
+# Exportar toda la BD
+pg_dump $DATABASE_URL > backup.sql
+
+# Exportar solo esquema
+pg_dump --schema-only $DATABASE_URL > schema.sql
+
+# Exportar solo datos
+pg_dump --data-only $DATABASE_URL > data.sql
+
+# Restaurar
+psql $DATABASE_URL < backup.sql
+```
+
+### Monitoreo
+
+**Neon Dashboard ofrece:**
+- 📊 Query performance metrics
+- 🔍 Slow query log
+- 💾 Storage usage
+- 🔌 Active connections
+- ⚡ Cache hit ratio
+
+**Acceso:**
+```
+Dashboard → Your Project → Monitoring
+```
+
+**Métricas clave a monitorear:**
+- Connection count (< límite de plan)
+- Storage usage (< 0.5 GB en free tier)
+- Query duration (identificar queries lentas)
+- Error rate
+
+### Deploy
+
+**Variables de entorno en producción:**
+
+```bash
+# Railway / Render / Fly.io
+DATABASE_URL=postgres://user:password@ep-xxx.aws.neon.tech/neondb?sslmode=require
+JWT_SECRET=your-super-secret-key
+PORT=8080
+```
+
+**Checklist de deploy:**
+- ✅ DATABASE_URL configurado
+- ✅ Migraciones probadas
+- ✅ Connection pool configurado
+- ✅ SSL/TLS habilitado (sslmode=require)
+- ✅ Backups verificados
+- ✅ Monitoreo activo
+
+### Testing con PostgreSQL
+
+**Opción 1: Usar Neon branch**
+```bash
+# Crear branch "test"
+export DATABASE_URL_TEST="postgres://...branch-test..."
+
+# Ejecutar tests
+go test ./... -v
+```
+
+**Opción 2: PostgreSQL local**
+```bash
+# Docker
+docker run --name postgres-test -e POSTGRES_PASSWORD=test -p 5432:5432 -d postgres:15
+
+# Connection string local
+export DATABASE_URL="postgres://postgres:test@localhost:5432/clinica_test?sslmode=disable"
+```
+
+**Opción 3: SQLite para tests unitarios**
+```go
+// Usar SQLite in-memory para tests rápidos
+func setupTestDB() *sql.DB {
+    db, _ := sql.Open("sqlite3", ":memory:")
+    return db
+}
+```
+
+### Ventajas para Producción
+
+**Antes (SQLite):**
+- ❌ Solo 1 conexión de escritura
+- ❌ Archivo local (no escalable)
+- ❌ Sin backups automáticos
+- ❌ Limitaciones de tipos de datos
+- ❌ No recomendado para producción
+
+**Ahora (PostgreSQL + Neon):**
+- ✅ Múltiples conexiones concurrentes
+- ✅ Base de datos en la nube
+- ✅ Backups automáticos
+- ✅ Tipos de datos nativos
+- ✅ Production-ready desde día 1
+- ✅ Escalable horizontalmente
+- ✅ SSL/TLS por defecto
+- ✅ Monitoreo integrado
+
+### Migración de Datos (SQLite → PostgreSQL)
+
+Si tienes datos en SQLite que quieres migrar:
+
+```bash
+# 1. Exportar datos de SQLite
+sqlite3 clinica.db .dump > dump.sql
+
+# 2. Convertir a formato PostgreSQL
+# (Reemplazar ? con $1, $2, etc.)
+# (Convertir INTEGER a BOOLEAN donde aplique)
+# (Convertir DATETIME a TIMESTAMP)
+
+# 3. Importar a PostgreSQL
+psql $DATABASE_URL < dump_converted.sql
+```
+
+**Herramientas útiles:**
+- **pgloader**: Migración automática SQLite → PostgreSQL
+- **DBeaver**: GUI para comparar esquemas
+- **Neon CLI**: Gestión desde terminal
+
+### Troubleshooting
+
+**Error: "too many connections"**
+```go
+// Reducir MaxOpenConns
+db.SetMaxOpenConns(10)
+```
+
+**Error: "connection timeout"**
+```go
+// Aumentar timeout
+db.SetConnMaxLifetime(10 * time.Minute)
+```
+
+**Error: "SSL required"**
+```bash
+# Asegurar sslmode=require en connection string
+DATABASE_URL="...?sslmode=require"
+```
+
+**Query lenta:**
+```sql
+-- Crear índices
+CREATE INDEX idx_appointments_doctor ON appointments(doctor_id);
+CREATE INDEX idx_appointments_date ON appointments(scheduled_at);
+```
+
+### Recursos
+
+- **Neon Docs**: https://neon.tech/docs
+- **pgx GitHub**: https://github.com/jackc/pgx
+- **PostgreSQL Tutorial**: https://www.postgresql.org/docs/
+- **Neon Discord**: Soporte comunitario
+
+---
+
 ### Endpoints de Servicios
 
 #### 1. Crear Servicio (Admin)
@@ -1561,12 +1943,13 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Sesión 5:** Confirm/Complete Citas + Historial Médico + Búsqueda Doctores
 - **Sesión 6:** Notificaciones Email (SendGrid) + Recordatorios Automáticos
 - **Sesión 7:** Sistema de Servicios + Slots Disponibles + Integración Completa
-- **Sesión 8:** Horarios Personalizados + Múltiples Bloques + Días No Laborables
-- **Sesión 9:** Analytics & Dashboard + KPIs + Rankings + Métricas de Negocio
+- **Sesión 8:** Horarios Personalizados + Analytics Dashboard + Bug Fix Service ID
+- **Sesión 9:** Migración a PostgreSQL + Neon + Production-Ready
 
 ### Tecnologías Elegidas:
 - **Go 1.21+** - Performance y concurrencia
-- **SQLite** - Desarrollo rápido (migrar a PostgreSQL en producción)
+- **PostgreSQL (Neon)** - Base de datos serverless production-ready
+- **pgx/v5** - Driver PostgreSQL de alto rendimiento
 - **Clean Architecture** - Mantenibilidad y testabilidad
 - **JWT** - Autenticación stateless
 - **RBAC** - Control de acceso basado en roles
@@ -1593,6 +1976,10 @@ curl "http://localhost:8080/api/services/available-slots?doctor_id={uuid}&servic
 - **Bug crítico de service_id:** AppointmentRepository.Create() no guardaba service_id en BD - Corregido agregando el campo al INSERT
 - **Queries de analytics optimizadas:** Uso de COUNT, SUM, GROUP BY y JOIN para agregaciones eficientes
 - **Métricas en tiempo real:** Dashboard calcula KPIs desde BD sin caché
+- **Migración SQLite a PostgreSQL:** Actualización de todos los placeholders (? → $1, $2), tipos de datos (BOOLEAN, TIMESTAMP) y sintaxis SQL
+- **Tipos nativos PostgreSQL:** BOOLEAN y TIMESTAMP sin conversiones manuales
+- **Connection pooling:** Configurado con Neon para múltiples conexiones concurrentes
+- **Production-ready database:** Migración completa a PostgreSQL serverless en AWS vía Neon
 
 ---
 
