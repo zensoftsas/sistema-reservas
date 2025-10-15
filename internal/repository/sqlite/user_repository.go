@@ -26,7 +26,7 @@ func NewSqliteUserRepository(db *sql.DB) repository.UserRepository {
 func (r *SqliteUserRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, role, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := r.db.ExecContext(
@@ -40,8 +40,8 @@ func (r *SqliteUserRepository) Create(ctx context.Context, user *domain.User) er
 		user.Phone,
 		user.Role,
 		user.IsActive,
-		user.CreatedAt.Format(time.RFC3339),
-		user.UpdatedAt.Format(time.RFC3339),
+		user.CreatedAt,
+		user.UpdatedAt,
 	)
 
 	if err != nil {
@@ -57,12 +57,12 @@ func (r *SqliteUserRepository) FindByID(ctx context.Context, id string) (*domain
 	query := `
 		SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, created_at, updated_at
 		FROM users
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var user domain.User
-	var isActive int
-	var createdAt, updatedAt string
+	var isActive bool
+	var createdAt, updatedAt time.Time
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
@@ -84,19 +84,10 @@ func (r *SqliteUserRepository) FindByID(ctx context.Context, id string) (*domain
 		return nil, err
 	}
 
-	// Convert is_active from int to bool
-	user.IsActive = isActive == 1
-
-	// Parse timestamps
-	user.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
-	if err != nil {
-		return nil, err
-	}
-
-	user.UpdatedAt, err = time.Parse(time.RFC3339, updatedAt)
-	if err != nil {
-		return nil, err
-	}
+	// Assign scanned values
+	user.IsActive = isActive
+	user.CreatedAt = createdAt
+	user.UpdatedAt = updatedAt
 
 	return &user, nil
 }
@@ -107,12 +98,12 @@ func (r *SqliteUserRepository) FindByEmail(ctx context.Context, email string) (*
 	query := `
 		SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, created_at, updated_at
 		FROM users
-		WHERE email = ?
+		WHERE email = $1
 	`
 
 	var user domain.User
-	var isActive int
-	var createdAt, updatedAt string
+	var isActive bool
+	var createdAt, updatedAt time.Time
 
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
@@ -134,19 +125,10 @@ func (r *SqliteUserRepository) FindByEmail(ctx context.Context, email string) (*
 		return nil, err
 	}
 
-	// Convert is_active from int to bool
-	user.IsActive = isActive == 1
-
-	// Parse timestamps
-	user.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
-	if err != nil {
-		return nil, err
-	}
-
-	user.UpdatedAt, err = time.Parse(time.RFC3339, updatedAt)
-	if err != nil {
-		return nil, err
-	}
+	// Assign scanned values
+	user.IsActive = isActive
+	user.CreatedAt = createdAt
+	user.UpdatedAt = updatedAt
 
 	return &user, nil
 }
@@ -155,8 +137,8 @@ func (r *SqliteUserRepository) FindByEmail(ctx context.Context, email string) (*
 func (r *SqliteUserRepository) Update(ctx context.Context, user *domain.User) error {
 	query := `
 		UPDATE users
-		SET email = ?, password_hash = ?, first_name = ?, last_name = ?, phone = ?, role = ?, is_active = ?, updated_at = ?
-		WHERE id = ?
+		SET email = $1, password_hash = $2, first_name = $3, last_name = $4, phone = $5, role = $6, is_active = $7, updated_at = $8
+		WHERE id = $9
 	`
 
 	result, err := r.db.ExecContext(
@@ -169,7 +151,7 @@ func (r *SqliteUserRepository) Update(ctx context.Context, user *domain.User) er
 		user.Phone,
 		user.Role,
 		user.IsActive,
-		user.UpdatedAt.Format(time.RFC3339),
+		user.UpdatedAt,
 		user.ID,
 	)
 
@@ -193,12 +175,12 @@ func (r *SqliteUserRepository) Update(ctx context.Context, user *domain.User) er
 func (r *SqliteUserRepository) Delete(ctx context.Context, id string) error {
 	query := `
 		UPDATE users
-		SET is_active = 0,
-		    updated_at = ?
-		WHERE id = ?
+		SET is_active = FALSE,
+		    updated_at = $1
+		WHERE id = $2
 	`
 
-	result, err := r.db.ExecContext(ctx, query, time.Now().Format(time.RFC3339), id)
+	result, err := r.db.ExecContext(ctx, query, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -221,7 +203,7 @@ func (r *SqliteUserRepository) List(ctx context.Context, limit, offset int) ([]*
 		SELECT id, email, password_hash, first_name, last_name, phone, role, is_active, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
+		LIMIT $1 OFFSET $2
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, limit, offset)
@@ -234,8 +216,8 @@ func (r *SqliteUserRepository) List(ctx context.Context, limit, offset int) ([]*
 
 	for rows.Next() {
 		var user domain.User
-		var isActive int
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&user.ID,
@@ -254,19 +236,10 @@ func (r *SqliteUserRepository) List(ctx context.Context, limit, offset int) ([]*
 			return nil, err
 		}
 
-		// Convert is_active from int to bool
-		user.IsActive = isActive == 1
-
-		// Parse timestamps
-		user.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
-		if err != nil {
-			return nil, err
-		}
-
-		user.UpdatedAt, err = time.Parse(time.RFC3339, updatedAt)
-		if err != nil {
-			return nil, err
-		}
+		// Assign scanned values
+		user.IsActive = isActive
+		user.CreatedAt = createdAt
+		user.UpdatedAt = updatedAt
 
 		users = append(users, &user)
 	}
@@ -285,8 +258,8 @@ func (r *SqliteUserRepository) FindDoctorsBySpecialty(ctx context.Context, speci
 		FROM users u
 		INNER JOIN doctors d ON u.id = d.user_id
 		WHERE u.role = 'doctor'
-		AND u.is_active = 1
-		AND LOWER(d.specialty) LIKE LOWER(?)
+		AND u.is_active = TRUE
+		AND LOWER(d.specialty) LIKE LOWER($1)
 		ORDER BY u.last_name ASC, u.first_name ASC
 	`
 
@@ -302,7 +275,8 @@ func (r *SqliteUserRepository) FindDoctorsBySpecialty(ctx context.Context, speci
 	var users []*domain.User
 	for rows.Next() {
 		var user domain.User
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&user.ID,
@@ -312,7 +286,7 @@ func (r *SqliteUserRepository) FindDoctorsBySpecialty(ctx context.Context, speci
 			&user.LastName,
 			&user.Phone,
 			&user.Role,
-			&user.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -320,8 +294,9 @@ func (r *SqliteUserRepository) FindDoctorsBySpecialty(ctx context.Context, speci
 			return nil, err
 		}
 
-		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		user.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		user.IsActive = isActive
+		user.CreatedAt = createdAt
+		user.UpdatedAt = updatedAt
 
 		users = append(users, &user)
 	}
@@ -335,7 +310,7 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone, u.role, u.is_active, u.created_at, u.updated_at
 		FROM users u
 		INNER JOIN doctors d ON u.id = d.user_id
-		WHERE u.role = 'doctor' AND u.is_active = 1
+		WHERE u.role = 'doctor' AND u.is_active = TRUE
 		ORDER BY u.last_name ASC, u.first_name ASC
 	`
 
@@ -348,7 +323,8 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 	var users []*domain.User
 	for rows.Next() {
 		var user domain.User
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&user.ID,
@@ -358,7 +334,7 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 			&user.LastName,
 			&user.Phone,
 			&user.Role,
-			&user.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -366,8 +342,9 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 			return nil, err
 		}
 
-		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		user.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		user.IsActive = isActive
+		user.CreatedAt = createdAt
+		user.UpdatedAt = updatedAt
 
 		users = append(users, &user)
 	}
@@ -377,7 +354,7 @@ func (r *SqliteUserRepository) GetAllDoctors(ctx context.Context) ([]*domain.Use
 
 // FindDoctorIDByUserID returns the doctor.id for a given user_id
 func (r *SqliteUserRepository) FindDoctorIDByUserID(ctx context.Context, userID string) (string, error) {
-	query := `SELECT id FROM doctors WHERE user_id = ?`
+	query := `SELECT id FROM doctors WHERE user_id = $1`
 
 	var doctorID string
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(&doctorID)
@@ -393,7 +370,7 @@ func (r *SqliteUserRepository) FindDoctorIDByUserID(ctx context.Context, userID 
 
 // CountByRole counts users by role
 func (r *SqliteUserRepository) CountByRole(ctx context.Context, role string) (int, error) {
-	query := `SELECT COUNT(*) FROM users WHERE role = ? AND is_active = 1`
+	query := `SELECT COUNT(*) FROM users WHERE role = $1 AND is_active = TRUE`
 
 	var count int
 	err := r.db.QueryRowContext(ctx, query, role).Scan(&count)
@@ -406,7 +383,7 @@ func (r *SqliteUserRepository) CountByRole(ctx context.Context, role string) (in
 
 // CountAllActive counts all active users
 func (r *SqliteUserRepository) CountAllActive(ctx context.Context) (int, error) {
-	query := `SELECT COUNT(*) FROM users WHERE is_active = 1`
+	query := `SELECT COUNT(*) FROM users WHERE is_active = TRUE`
 
 	var count int
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)

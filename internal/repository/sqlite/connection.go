@@ -4,36 +4,38 @@ import (
 	"database/sql"
 	"log"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// InitDB initializes and returns a SQLite database connection
+// InitDB initializes and returns a PostgreSQL database connection
 // Returns an error if the connection cannot be established
-func InitDB(filepath string) (*sql.DB, error) {
-	// Open database connection
-	db, err := sql.Open("sqlite", filepath)
+func InitDB(databaseURL string) (*sql.DB, error) {
+	// Open PostgreSQL connection
+	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Verify connection is working
+	// Test connection
 	if err := db.Ping(); err != nil {
-		db.Close()
 		return nil, err
 	}
 
-	// Configure SQLite connection pool
-	// SQLite works best with a single connection to avoid locking issues
-	db.SetMaxOpenConns(1)
+	log.Printf("Database connection established: PostgreSQL (Neon)")
 
-	log.Printf("Database connection established: %s", filepath)
+	// Run migrations
+	if err := runMigrations(db); err != nil {
+		return nil, err
+	}
+
+	log.Println("Database migration completed successfully")
 
 	return db, nil
 }
 
-// MigrateDB creates all necessary database tables and indexes
+// runMigrations creates all necessary database tables and indexes
 // Returns an error if migration fails
-func MigrateDB(db *sql.DB) error {
+func runMigrations(db *sql.DB) error {
 	// Create users table
 	createUsersTable := `
 	CREATE TABLE IF NOT EXISTS users (
@@ -44,9 +46,9 @@ func MigrateDB(db *sql.DB) error {
 		last_name TEXT NOT NULL,
 		phone TEXT NOT NULL,
 		role TEXT NOT NULL CHECK(role IN ('admin', 'doctor', 'patient')),
-		is_active BOOLEAN NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL
 	);`
 
 	if _, err := db.Exec(createUsersTable); err != nil {
@@ -70,7 +72,7 @@ func MigrateDB(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS patients (
 		id TEXT PRIMARY KEY,
 		user_id TEXT UNIQUE NOT NULL,
-		birthdate DATETIME NOT NULL,
+		birthdate TIMESTAMP NOT NULL,
 		document_type TEXT NOT NULL,
 		document_number TEXT NOT NULL,
 		address TEXT NOT NULL,
@@ -78,8 +80,8 @@ func MigrateDB(db *sql.DB) error {
 		emergency_contact_phone TEXT NOT NULL,
 		blood_type TEXT,
 		allergies TEXT,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
@@ -104,9 +106,9 @@ func MigrateDB(db *sql.DB) error {
 		education TEXT,
 		bio TEXT,
 		consultation_fee REAL NOT NULL,
-		is_available BOOLEAN NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
+		is_available BOOLEAN NOT NULL DEFAULT TRUE,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
@@ -134,9 +136,9 @@ func MigrateDB(db *sql.DB) error {
 		start_time TEXT NOT NULL,
 		end_time TEXT NOT NULL,
 		slot_duration INTEGER NOT NULL,
-		is_active BOOLEAN NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
 		FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
 	);`
 
@@ -158,9 +160,9 @@ func MigrateDB(db *sql.DB) error {
 		description TEXT,
 		duration_minutes INTEGER NOT NULL CHECK(duration_minutes > 0),
 		price REAL NOT NULL CHECK(price >= 0),
-		is_active BOOLEAN NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL
 	);`
 
 	if _, err := db.Exec(createServicesTable); err != nil {
@@ -185,9 +187,9 @@ func MigrateDB(db *sql.DB) error {
 		id TEXT PRIMARY KEY,
 		doctor_id TEXT NOT NULL,
 		service_id TEXT NOT NULL,
-		is_active BOOLEAN NOT NULL DEFAULT 1,
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
 		FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
 		FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
 		UNIQUE(doctor_id, service_id)
@@ -214,14 +216,14 @@ func MigrateDB(db *sql.DB) error {
 		id TEXT PRIMARY KEY,
 		patient_id TEXT NOT NULL,
 		doctor_id TEXT NOT NULL,
-		scheduled_at DATETIME NOT NULL,
+		scheduled_at TIMESTAMP NOT NULL,
 		duration INTEGER NOT NULL,
 		reason TEXT NOT NULL,
 		notes TEXT,
 		status TEXT NOT NULL CHECK(status IN ('pending', 'confirmed', 'cancelled', 'completed')),
-		created_at DATETIME NOT NULL,
-		updated_at DATETIME NOT NULL,
-		cancelled_at DATETIME,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL,
+		cancelled_at TIMESTAMP,
 		cancellation_reason TEXT,
 		FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
 		FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
@@ -233,12 +235,12 @@ func MigrateDB(db *sql.DB) error {
 
 	// Add reminder fields to appointments table if they don't exist
 	alterAppointmentsReminder24h := `
-	ALTER TABLE appointments ADD COLUMN reminder_24h_sent BOOLEAN DEFAULT 0;
+	ALTER TABLE appointments ADD COLUMN reminder_24h_sent BOOLEAN DEFAULT FALSE;
 `
 	db.Exec(alterAppointmentsReminder24h) // Ignore error if column exists
 
 	alterAppointmentsReminder1h := `
-	ALTER TABLE appointments ADD COLUMN reminder_1h_sent BOOLEAN DEFAULT 0;
+	ALTER TABLE appointments ADD COLUMN reminder_1h_sent BOOLEAN DEFAULT FALSE;
 `
 	db.Exec(alterAppointmentsReminder1h) // Ignore error if column exists
 
@@ -273,8 +275,6 @@ func MigrateDB(db *sql.DB) error {
 	if _, err := db.Exec(createAppointmentServiceIndex); err != nil {
 		return err
 	}
-
-	log.Println("Database migration completed successfully")
 
 	return nil
 }

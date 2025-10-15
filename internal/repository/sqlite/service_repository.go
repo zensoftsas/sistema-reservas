@@ -26,7 +26,7 @@ func NewSqliteServiceRepository(db *sql.DB) repository.ServiceRepository {
 func (r *SqliteServiceRepository) Create(ctx context.Context, service *domain.Service) error {
 	query := `
 		INSERT INTO services (id, name, description, duration_minutes, price, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 
 	_, err := r.db.ExecContext(
@@ -38,8 +38,8 @@ func (r *SqliteServiceRepository) Create(ctx context.Context, service *domain.Se
 		service.DurationMinutes,
 		service.Price,
 		service.IsActive,
-		service.CreatedAt.Format(time.RFC3339),
-		service.UpdatedAt.Format(time.RFC3339),
+		service.CreatedAt,
+		service.UpdatedAt,
 	)
 
 	return err
@@ -50,11 +50,12 @@ func (r *SqliteServiceRepository) FindByID(ctx context.Context, id string) (*dom
 	query := `
 		SELECT id, name, description, duration_minutes, price, is_active, created_at, updated_at
 		FROM services
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var service domain.Service
-	var createdAt, updatedAt string
+	var isActive bool
+	var createdAt, updatedAt time.Time
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&service.ID,
@@ -62,7 +63,7 @@ func (r *SqliteServiceRepository) FindByID(ctx context.Context, id string) (*dom
 		&service.Description,
 		&service.DurationMinutes,
 		&service.Price,
-		&service.IsActive,
+		&isActive,
 		&createdAt,
 		&updatedAt,
 	)
@@ -74,9 +75,10 @@ func (r *SqliteServiceRepository) FindByID(ctx context.Context, id string) (*dom
 		return nil, err
 	}
 
-	// Parse timestamps
-	service.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	service.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	// Assign scanned values
+	service.IsActive = isActive
+	service.CreatedAt = createdAt
+	service.UpdatedAt = updatedAt
 
 	return &service, nil
 }
@@ -86,7 +88,7 @@ func (r *SqliteServiceRepository) ListActive(ctx context.Context) ([]*domain.Ser
 	query := `
 		SELECT id, name, description, duration_minutes, price, is_active, created_at, updated_at
 		FROM services
-		WHERE is_active = 1
+		WHERE is_active = TRUE
 		ORDER BY name ASC
 	`
 
@@ -108,8 +110,8 @@ func (r *SqliteServiceRepository) ListAll(ctx context.Context) ([]*domain.Servic
 func (r *SqliteServiceRepository) Update(ctx context.Context, service *domain.Service) error {
 	query := `
 		UPDATE services
-		SET name = ?, description = ?, duration_minutes = ?, price = ?, is_active = ?, updated_at = ?
-		WHERE id = ?
+		SET name = $1, description = $2, duration_minutes = $3, price = $4, is_active = $5, updated_at = $6
+		WHERE id = $7
 	`
 
 	result, err := r.db.ExecContext(
@@ -120,7 +122,7 @@ func (r *SqliteServiceRepository) Update(ctx context.Context, service *domain.Se
 		service.DurationMinutes,
 		service.Price,
 		service.IsActive,
-		service.UpdatedAt.Format(time.RFC3339),
+		service.UpdatedAt,
 		service.ID,
 	)
 
@@ -142,7 +144,7 @@ func (r *SqliteServiceRepository) Update(ctx context.Context, service *domain.Se
 
 // Delete removes a service from the database
 func (r *SqliteServiceRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM services WHERE id = ?`
+	query := `DELETE FROM services WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -173,7 +175,8 @@ func (r *SqliteServiceRepository) queryServices(ctx context.Context, query strin
 
 	for rows.Next() {
 		var service domain.Service
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&service.ID,
@@ -181,7 +184,7 @@ func (r *SqliteServiceRepository) queryServices(ctx context.Context, query strin
 			&service.Description,
 			&service.DurationMinutes,
 			&service.Price,
-			&service.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -190,9 +193,10 @@ func (r *SqliteServiceRepository) queryServices(ctx context.Context, query strin
 			return nil, err
 		}
 
-		// Parse timestamps
-		service.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		service.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		service.IsActive = isActive
+		service.CreatedAt = createdAt
+		service.UpdatedAt = updatedAt
 
 		services = append(services, &service)
 	}

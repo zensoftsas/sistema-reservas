@@ -22,7 +22,7 @@ func NewSqliteScheduleRepository(db *sql.DB) *SqliteScheduleRepository {
 func (r *SqliteScheduleRepository) Create(ctx context.Context, schedule *domain.Schedule) error {
 	query := `
 		INSERT INTO schedules (id, doctor_id, day_of_week, start_time, end_time, slot_duration, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
 	_, err := r.db.ExecContext(
@@ -35,8 +35,8 @@ func (r *SqliteScheduleRepository) Create(ctx context.Context, schedule *domain.
 		schedule.EndTime,
 		schedule.SlotDuration,
 		schedule.IsActive,
-		schedule.CreatedAt.Format(time.RFC3339),
-		schedule.UpdatedAt.Format(time.RFC3339),
+		schedule.CreatedAt,
+		schedule.UpdatedAt,
 	)
 
 	return err
@@ -47,7 +47,7 @@ func (r *SqliteScheduleRepository) FindByID(ctx context.Context, id string) (*do
 	query := `
 		SELECT id, doctor_id, day_of_week, start_time, end_time, slot_duration, is_active, created_at, updated_at
 		FROM schedules
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	schedules, err := r.querySchedules(ctx, query, id)
@@ -67,7 +67,7 @@ func (r *SqliteScheduleRepository) FindByDoctorAndDay(ctx context.Context, docto
 	query := `
 		SELECT id, doctor_id, day_of_week, start_time, end_time, slot_duration, is_active, created_at, updated_at
 		FROM schedules
-		WHERE doctor_id = ? AND day_of_week = ? AND is_active = 1
+		WHERE doctor_id = $1 AND day_of_week = $2 AND is_active = TRUE
 		ORDER BY start_time ASC
 	`
 
@@ -79,7 +79,7 @@ func (r *SqliteScheduleRepository) FindByDoctor(ctx context.Context, doctorID st
 	query := `
 		SELECT id, doctor_id, day_of_week, start_time, end_time, slot_duration, is_active, created_at, updated_at
 		FROM schedules
-		WHERE doctor_id = ? AND is_active = 1
+		WHERE doctor_id = $1 AND is_active = TRUE
 		ORDER BY
 			CASE day_of_week
 				WHEN 'monday' THEN 1
@@ -100,9 +100,9 @@ func (r *SqliteScheduleRepository) FindByDoctor(ctx context.Context, doctorID st
 func (r *SqliteScheduleRepository) Update(ctx context.Context, schedule *domain.Schedule) error {
 	query := `
 		UPDATE schedules
-		SET doctor_id = ?, day_of_week = ?, start_time = ?, end_time = ?,
-		    slot_duration = ?, is_active = ?, updated_at = ?
-		WHERE id = ?
+		SET doctor_id = $1, day_of_week = $2, start_time = $3, end_time = $4,
+		    slot_duration = $5, is_active = $6, updated_at = $7
+		WHERE id = $8
 	`
 
 	_, err := r.db.ExecContext(
@@ -114,7 +114,7 @@ func (r *SqliteScheduleRepository) Update(ctx context.Context, schedule *domain.
 		schedule.EndTime,
 		schedule.SlotDuration,
 		schedule.IsActive,
-		schedule.UpdatedAt.Format(time.RFC3339),
+		schedule.UpdatedAt,
 		schedule.ID,
 	)
 
@@ -123,14 +123,14 @@ func (r *SqliteScheduleRepository) Update(ctx context.Context, schedule *domain.
 
 // Delete deletes a schedule
 func (r *SqliteScheduleRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM schedules WHERE id = ?`
+	query := `DELETE FROM schedules WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
 
 // DeleteByDoctorAndDay deletes all schedules for a doctor on a specific day
 func (r *SqliteScheduleRepository) DeleteByDoctorAndDay(ctx context.Context, doctorID, dayOfWeek string) error {
-	query := `DELETE FROM schedules WHERE doctor_id = ? AND day_of_week = ?`
+	query := `DELETE FROM schedules WHERE doctor_id = $1 AND day_of_week = $2`
 	_, err := r.db.ExecContext(ctx, query, doctorID, dayOfWeek)
 	return err
 }
@@ -147,7 +147,8 @@ func (r *SqliteScheduleRepository) querySchedules(ctx context.Context, query str
 
 	for rows.Next() {
 		var schedule domain.Schedule
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&schedule.ID,
@@ -156,7 +157,7 @@ func (r *SqliteScheduleRepository) querySchedules(ctx context.Context, query str
 			&schedule.StartTime,
 			&schedule.EndTime,
 			&schedule.SlotDuration,
-			&schedule.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -165,9 +166,10 @@ func (r *SqliteScheduleRepository) querySchedules(ctx context.Context, query str
 			return nil, err
 		}
 
-		// Parse timestamps
-		schedule.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		schedule.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		schedule.IsActive = isActive
+		schedule.CreatedAt = createdAt
+		schedule.UpdatedAt = updatedAt
 
 		schedules = append(schedules, &schedule)
 	}

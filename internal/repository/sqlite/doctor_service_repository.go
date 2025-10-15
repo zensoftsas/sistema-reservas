@@ -26,7 +26,7 @@ func NewSqliteDoctorServiceRepository(db *sql.DB) repository.DoctorServiceReposi
 func (r *SqliteDoctorServiceRepository) Assign(ctx context.Context, doctorService *domain.DoctorService) error {
 	query := `
 		INSERT INTO doctor_services (id, doctor_id, service_id, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
 	_, err := r.db.ExecContext(
@@ -36,8 +36,8 @@ func (r *SqliteDoctorServiceRepository) Assign(ctx context.Context, doctorServic
 		doctorService.DoctorID,
 		doctorService.ServiceID,
 		doctorService.IsActive,
-		doctorService.CreatedAt.Format(time.RFC3339),
-		doctorService.UpdatedAt.Format(time.RFC3339),
+		doctorService.CreatedAt,
+		doctorService.UpdatedAt,
 	)
 
 	return err
@@ -45,7 +45,7 @@ func (r *SqliteDoctorServiceRepository) Assign(ctx context.Context, doctorServic
 
 // Remove removes a service assignment from a doctor
 func (r *SqliteDoctorServiceRepository) Remove(ctx context.Context, doctorID, serviceID string) error {
-	query := `DELETE FROM doctor_services WHERE doctor_id = ? AND service_id = ?`
+	query := `DELETE FROM doctor_services WHERE doctor_id = $1 AND service_id = $2`
 
 	result, err := r.db.ExecContext(ctx, query, doctorID, serviceID)
 	if err != nil {
@@ -81,7 +81,7 @@ func (r *SqliteDoctorServiceRepository) FindDoctorsByService(ctx context.Context
 		FROM users u
 		INNER JOIN doctors d ON d.user_id = u.id
 		INNER JOIN doctor_services ds ON ds.doctor_id = d.id
-		WHERE ds.service_id = ? AND ds.is_active = 1 AND u.is_active = 1
+		WHERE ds.service_id = $1 AND ds.is_active = TRUE AND u.is_active = TRUE
 		ORDER BY u.first_name ASC, u.last_name ASC
 	`
 
@@ -95,7 +95,8 @@ func (r *SqliteDoctorServiceRepository) FindDoctorsByService(ctx context.Context
 
 	for rows.Next() {
 		var user domain.User
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&user.ID,
@@ -105,7 +106,7 @@ func (r *SqliteDoctorServiceRepository) FindDoctorsByService(ctx context.Context
 			&user.LastName,
 			&user.Phone,
 			&user.Role,
-			&user.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -114,9 +115,10 @@ func (r *SqliteDoctorServiceRepository) FindDoctorsByService(ctx context.Context
 			return nil, err
 		}
 
-		// Parse timestamps
-		user.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		user.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		user.IsActive = isActive
+		user.CreatedAt = createdAt
+		user.UpdatedAt = updatedAt
 
 		users = append(users, &user)
 	}
@@ -138,7 +140,7 @@ func (r *SqliteDoctorServiceRepository) FindServicesByDoctor(ctx context.Context
 			s.updated_at
 		FROM services s
 		INNER JOIN doctor_services ds ON ds.service_id = s.id
-		WHERE ds.doctor_id = ? AND ds.is_active = 1 AND s.is_active = 1
+		WHERE ds.doctor_id = $1 AND ds.is_active = TRUE AND s.is_active = TRUE
 		ORDER BY s.name ASC
 	`
 
@@ -152,7 +154,8 @@ func (r *SqliteDoctorServiceRepository) FindServicesByDoctor(ctx context.Context
 
 	for rows.Next() {
 		var service domain.Service
-		var createdAt, updatedAt string
+		var isActive bool
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&service.ID,
@@ -160,7 +163,7 @@ func (r *SqliteDoctorServiceRepository) FindServicesByDoctor(ctx context.Context
 			&service.Description,
 			&service.DurationMinutes,
 			&service.Price,
-			&service.IsActive,
+			&isActive,
 			&createdAt,
 			&updatedAt,
 		)
@@ -169,9 +172,10 @@ func (r *SqliteDoctorServiceRepository) FindServicesByDoctor(ctx context.Context
 			return nil, err
 		}
 
-		// Parse timestamps
-		service.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		service.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		service.IsActive = isActive
+		service.CreatedAt = createdAt
+		service.UpdatedAt = updatedAt
 
 		services = append(services, &service)
 	}
@@ -183,7 +187,7 @@ func (r *SqliteDoctorServiceRepository) FindServicesByDoctor(ctx context.Context
 func (r *SqliteDoctorServiceRepository) IsAssigned(ctx context.Context, doctorID, serviceID string) (bool, error) {
 	query := `
 		SELECT COUNT(*) FROM doctor_services
-		WHERE doctor_id = ? AND service_id = ? AND is_active = 1
+		WHERE doctor_id = $1 AND service_id = $2 AND is_active = TRUE
 	`
 
 	var count int
@@ -200,17 +204,18 @@ func (r *SqliteDoctorServiceRepository) FindByDoctorAndService(ctx context.Conte
 	query := `
 		SELECT id, doctor_id, service_id, is_active, created_at, updated_at
 		FROM doctor_services
-		WHERE doctor_id = ? AND service_id = ?
+		WHERE doctor_id = $1 AND service_id = $2
 	`
 
 	var ds domain.DoctorService
-	var createdAt, updatedAt string
+	var isActive bool
+	var createdAt, updatedAt time.Time
 
 	err := r.db.QueryRowContext(ctx, query, doctorID, serviceID).Scan(
 		&ds.ID,
 		&ds.DoctorID,
 		&ds.ServiceID,
-		&ds.IsActive,
+		&isActive,
 		&createdAt,
 		&updatedAt,
 	)
@@ -222,9 +227,10 @@ func (r *SqliteDoctorServiceRepository) FindByDoctorAndService(ctx context.Conte
 		return nil, err
 	}
 
-	// Parse timestamps
-	ds.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	ds.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	// Assign scanned values
+	ds.IsActive = isActive
+	ds.CreatedAt = createdAt
+	ds.UpdatedAt = updatedAt
 
 	return &ds, nil
 }

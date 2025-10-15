@@ -30,7 +30,7 @@ func (r *SqliteAppointmentRepository) Create(ctx context.Context, appointment *d
 			reason, notes, status, created_at, updated_at,
 			reminder_24h_sent, reminder_1h_sent, service_id
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	_, err := r.db.ExecContext(
@@ -39,13 +39,13 @@ func (r *SqliteAppointmentRepository) Create(ctx context.Context, appointment *d
 		appointment.ID,
 		appointment.PatientID,
 		appointment.DoctorID,
-		appointment.ScheduledAt.Format(time.RFC3339),
+		appointment.ScheduledAt,
 		appointment.Duration,
 		appointment.Reason,
 		appointment.Notes,
 		appointment.Status,
-		appointment.CreatedAt.Format(time.RFC3339),
-		appointment.UpdatedAt.Format(time.RFC3339),
+		appointment.CreatedAt,
+		appointment.UpdatedAt,
 		appointment.Reminder24hSent,
 		appointment.Reminder1hSent,
 		appointment.ServiceID,
@@ -59,11 +59,11 @@ func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (
 	query := `
 		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
-		WHERE id = ?
+		WHERE id = $1
 	`
 
 	var appointment domain.Appointment
-	var scheduledAt, createdAt, updatedAt string
+	var scheduledAt, createdAt, updatedAt time.Time
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&appointment.ID,
@@ -87,10 +87,10 @@ func (r *SqliteAppointmentRepository) FindByID(ctx context.Context, id string) (
 		return nil, err
 	}
 
-	// Parse scheduled_at
-	appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
-	appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-	appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+	// Assign scanned values
+	appointment.ScheduledAt = scheduledAt
+	appointment.CreatedAt = createdAt
+	appointment.UpdatedAt = updatedAt
 
 	return &appointment, nil
 }
@@ -116,7 +116,7 @@ func (r *SqliteAppointmentRepository) FindByPatientID(ctx context.Context, patie
 		FROM appointments a
 		JOIN users p ON p.id = a.patient_id
 		JOIN users d ON d.id = a.doctor_id
-		WHERE a.patient_id = ?
+		WHERE a.patient_id = $1
 		ORDER BY a.scheduled_at DESC
 	`
 
@@ -144,7 +144,7 @@ func (r *SqliteAppointmentRepository) FindByDoctorID(ctx context.Context, doctor
 		FROM appointments a
 		JOIN users p ON p.id = a.patient_id
 		JOIN users d ON d.id = a.doctor_id
-		WHERE a.doctor_id = ?
+		WHERE a.doctor_id = $1
 		ORDER BY a.scheduled_at DESC
 	`
 
@@ -156,11 +156,11 @@ func (r *SqliteAppointmentRepository) FindByDoctorAndDate(ctx context.Context, d
 	query := `
 		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
-		WHERE doctor_id = ? AND DATE(scheduled_at) = DATE(?)
+		WHERE doctor_id = $1 AND DATE(scheduled_at) = DATE($2)
 		ORDER BY scheduled_at ASC
 	`
 
-	return r.queryAppointments(ctx, query, doctorID, date.Format(time.RFC3339))
+	return r.queryAppointments(ctx, query, doctorID, date)
 }
 
 // FindByDoctorAndDateRange retrieves appointments for a doctor within a date range
@@ -168,19 +168,19 @@ func (r *SqliteAppointmentRepository) FindByDoctorAndDateRange(ctx context.Conte
 	query := `
 		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
-		WHERE doctor_id = ? AND scheduled_at >= ? AND scheduled_at < ?
+		WHERE doctor_id = $1 AND scheduled_at >= $2 AND scheduled_at < $3
 		ORDER BY scheduled_at ASC
 	`
 
-	return r.queryAppointments(ctx, query, doctorID, start.Format(time.RFC3339), end.Format(time.RFC3339))
+	return r.queryAppointments(ctx, query, doctorID, start, end)
 }
 
 // Update modifies an existing appointment in the database
 func (r *SqliteAppointmentRepository) Update(ctx context.Context, appointment *domain.Appointment) error {
 	query := `
 		UPDATE appointments
-		SET status = ?, notes = ?, updated_at = ?
-		WHERE id = ?
+		SET status = $1, notes = $2, updated_at = $3
+		WHERE id = $4
 	`
 
 	result, err := r.db.ExecContext(
@@ -188,7 +188,7 @@ func (r *SqliteAppointmentRepository) Update(ctx context.Context, appointment *d
 		query,
 		appointment.Status,
 		appointment.Notes,
-		appointment.UpdatedAt.Format(time.RFC3339),
+		appointment.UpdatedAt,
 		appointment.ID,
 	)
 
@@ -210,7 +210,7 @@ func (r *SqliteAppointmentRepository) Update(ctx context.Context, appointment *d
 
 // Delete removes an appointment from the database
 func (r *SqliteAppointmentRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM appointments WHERE id = ?`
+	query := `DELETE FROM appointments WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -241,7 +241,7 @@ func (r *SqliteAppointmentRepository) queryAppointments(ctx context.Context, que
 
 	for rows.Next() {
 		var appointment domain.Appointment
-		var scheduledAt, createdAt, updatedAt string
+		var scheduledAt, createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&appointment.ID,
@@ -262,10 +262,10 @@ func (r *SqliteAppointmentRepository) queryAppointments(ctx context.Context, que
 			return nil, err
 		}
 
-		// Parse times
-		appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
-		appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		appointment.ScheduledAt = scheduledAt
+		appointment.CreatedAt = createdAt
+		appointment.UpdatedAt = updatedAt
 
 		appointments = append(appointments, &appointment)
 	}
@@ -278,11 +278,11 @@ func (r *SqliteAppointmentRepository) FindByScheduledAtRange(ctx context.Context
 	query := `
 		SELECT id, patient_id, doctor_id, scheduled_at, duration, status, reason, notes, created_at, updated_at, reminder_24h_sent, reminder_1h_sent
 		FROM appointments
-		WHERE scheduled_at >= ? AND scheduled_at <= ? AND status = ?
+		WHERE scheduled_at >= $1 AND scheduled_at <= $2 AND status = $3
 		ORDER BY scheduled_at ASC
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, start.Format(time.RFC3339), end.Format(time.RFC3339), status)
+	rows, err := r.db.QueryContext(ctx, query, start, end, status)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (r *SqliteAppointmentRepository) FindByScheduledAtRange(ctx context.Context
 
 	for rows.Next() {
 		var appointment domain.Appointment
-		var scheduledAt, createdAt, updatedAt string
+		var scheduledAt, createdAt, updatedAt time.Time
 
 		err := rows.Scan(
 			&appointment.ID,
@@ -313,9 +313,9 @@ func (r *SqliteAppointmentRepository) FindByScheduledAtRange(ctx context.Context
 			return nil, err
 		}
 
-		appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
-		appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		appointment.ScheduledAt = scheduledAt
+		appointment.CreatedAt = createdAt
+		appointment.UpdatedAt = updatedAt
 
 		appointments = append(appointments, &appointment)
 	}
@@ -325,14 +325,14 @@ func (r *SqliteAppointmentRepository) FindByScheduledAtRange(ctx context.Context
 
 // MarkReminder24hSent marks the 24-hour reminder as sent
 func (r *SqliteAppointmentRepository) MarkReminder24hSent(ctx context.Context, id string) error {
-	query := `UPDATE appointments SET reminder_24h_sent = 1 WHERE id = ?`
+	query := `UPDATE appointments SET reminder_24h_sent = TRUE WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
 
 // MarkReminder1hSent marks the 1-hour reminder as sent
 func (r *SqliteAppointmentRepository) MarkReminder1hSent(ctx context.Context, id string) error {
-	query := `UPDATE appointments SET reminder_1h_sent = 1 WHERE id = ?`
+	query := `UPDATE appointments SET reminder_1h_sent = TRUE WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
 }
@@ -349,7 +349,7 @@ func (r *SqliteAppointmentRepository) queryAppointmentsWithNames(ctx context.Con
 
 	for rows.Next() {
 		var appointment domain.Appointment
-		var scheduledAt, createdAt, updatedAt string
+		var scheduledAt, createdAt, updatedAt time.Time
 		var patientName, doctorName string
 
 		err := rows.Scan(
@@ -373,10 +373,10 @@ func (r *SqliteAppointmentRepository) queryAppointmentsWithNames(ctx context.Con
 			return nil, err
 		}
 
-		// Parse times
-		appointment.ScheduledAt, _ = time.Parse(time.RFC3339, scheduledAt)
-		appointment.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		appointment.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		// Assign scanned values
+		appointment.ScheduledAt = scheduledAt
+		appointment.CreatedAt = createdAt
+		appointment.UpdatedAt = updatedAt
 
 		// Set names
 		appointment.PatientName = patientName
@@ -390,7 +390,7 @@ func (r *SqliteAppointmentRepository) queryAppointmentsWithNames(ctx context.Con
 
 // CountByStatus counts appointments by status
 func (r *SqliteAppointmentRepository) CountByStatus(ctx context.Context, status string) (int, error) {
-	query := `SELECT COUNT(*) FROM appointments WHERE status = ?`
+	query := `SELECT COUNT(*) FROM appointments WHERE status = $1`
 
 	var count int
 	err := r.db.QueryRowContext(ctx, query, status).Scan(&count)
@@ -420,7 +420,7 @@ func (r *SqliteAppointmentRepository) GetTotalRevenue(ctx context.Context) (floa
 		SELECT COALESCE(SUM(s.price), 0)
 		FROM appointments a
 		JOIN services s ON a.service_id = s.id
-		WHERE a.status = ?
+		WHERE a.status = $1
 	`
 
 	var revenue float64
@@ -446,7 +446,7 @@ func (r *SqliteAppointmentRepository) GetRevenueByService(ctx context.Context) (
 			SUM(s.price) as revenue
 		FROM appointments a
 		JOIN services s ON a.service_id = s.id
-		WHERE a.status = ?
+		WHERE a.status = $1
 		GROUP BY a.service_id, s.name
 		ORDER BY revenue DESC
 	`
@@ -500,7 +500,7 @@ func (r *SqliteAppointmentRepository) GetTopDoctors(ctx context.Context, limit i
 		FROM appointments
 		GROUP BY doctor_id
 		ORDER BY total DESC
-		LIMIT ?
+		LIMIT $1
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, limit)
@@ -547,7 +547,7 @@ func (r *SqliteAppointmentRepository) GetTopServices(ctx context.Context, limit 
 		JOIN services s ON a.service_id = s.id
 		GROUP BY a.service_id, s.name
 		ORDER BY count DESC
-		LIMIT ?
+		LIMIT $1
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, limit)

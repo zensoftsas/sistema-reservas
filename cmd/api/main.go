@@ -29,25 +29,16 @@ func main() {
 	cfg := config.LoadConfig()
 	fmt.Printf("🔧 Configuración cargada:\n")
 	fmt.Printf("   Puerto: %s\n", cfg.ServerPort)
-	fmt.Printf("   Base de datos: %s\n", cfg.DatabasePath)
-	fmt.Printf("   JWT Expiration: %d horas\n\n", cfg.JWTExpirationHours)
+	fmt.Printf("   Base de datos: %s\n", cfg.DatabaseURL)
+	fmt.Printf("   JWT Expiration: %d horas\n\n", cfg.JWTExpirationHrs)
 
-	// Initialize SQLite database
+	// Initialize PostgreSQL database
 	fmt.Println("📦 Inicializando base de datos...")
-	db, err := sqlite.InitDB(cfg.DatabasePath)
+	db, err := sqlite.InitDB(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Error al inicializar la base de datos: %v", err)
 	}
 	defer db.Close()
-	fmt.Println("✅ Base de datos inicializada")
-
-	// Execute database migrations
-	fmt.Println("🔧 Ejecutando migraciones...")
-	err = sqlite.MigrateDB(db)
-	if err != nil {
-		log.Fatalf("Error al ejecutar migraciones: %v", err)
-	}
-	fmt.Println("✅ Migraciones completadas\n")
 	fmt.Println("⏰ Servicio de recordatorios iniciado")
 
 	// Create repositories
@@ -97,7 +88,7 @@ func main() {
 	getAvailableSlotsUC := service.NewGetAvailableSlotsUseCase(serviceRepo, appointmentRepo, userRepo, scheduleRepo)
 
 	// Create auth use cases
-	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHours)
+	loginUC := auth.NewLoginUseCase(userRepo, cfg.JWTSecret, cfg.JWTExpirationHrs)
 
 	// Create schedule use cases
 	createScheduleUC := schedule.NewCreateScheduleUseCase(scheduleRepo, userRepo)
