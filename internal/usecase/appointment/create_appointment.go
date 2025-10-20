@@ -65,6 +65,12 @@ func (uc *CreateAppointmentUseCase) Execute(ctx context.Context, patientID, doct
 		return nil, err
 	}
 
+	// Get real patient.id
+	realPatientID, err := uc.userRepo.FindPatientIDByUserID(ctx, patientID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Validate service exists
 	service, err := uc.serviceRepo.FindByID(ctx, serviceID)
 	if err != nil {
@@ -109,7 +115,7 @@ func (uc *CreateAppointmentUseCase) Execute(ctx context.Context, patientID, doct
 	now := time.Now()
 	appointment := &domain.Appointment{
 		ID:          uuid.New().String(),
-		PatientID:   patientID,
+		PatientID:   realPatientID, // Use real patient.id from patients table
 		DoctorID:    realDoctorID,
 		ServiceID:   serviceID,
 		ServiceName: service.Name,

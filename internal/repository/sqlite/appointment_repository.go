@@ -111,11 +111,13 @@ func (r *SqliteAppointmentRepository) FindByPatientID(ctx context.Context, patie
 			a.updated_at,
 			a.reminder_24h_sent,
 			a.reminder_1h_sent,
-			(p.first_name || ' ' || p.last_name) as patient_name,
-			(d.first_name || ' ' || d.last_name) as doctor_name
+			(pu.first_name || ' ' || pu.last_name) as patient_name,
+			(du.first_name || ' ' || du.last_name) as doctor_name
 		FROM appointments a
-		JOIN users p ON p.id = a.patient_id
-		JOIN users d ON d.id = a.doctor_id
+		JOIN patients pt ON pt.id = a.patient_id
+		JOIN users pu ON pu.id = pt.user_id
+		JOIN doctors doc ON doc.id = a.doctor_id
+		JOIN users du ON du.id = doc.user_id
 		WHERE a.patient_id = $1
 		ORDER BY a.scheduled_at DESC
 	`
@@ -139,11 +141,13 @@ func (r *SqliteAppointmentRepository) FindByDoctorID(ctx context.Context, doctor
 			a.updated_at,
 			a.reminder_24h_sent,
 			a.reminder_1h_sent,
-			(p.first_name || ' ' || p.last_name) as patient_name,
-			(d.first_name || ' ' || d.last_name) as doctor_name
+			(pu.first_name || ' ' || pu.last_name) as patient_name,
+			(du.first_name || ' ' || du.last_name) as doctor_name
 		FROM appointments a
-		JOIN users p ON p.id = a.patient_id
-		JOIN users d ON d.id = a.doctor_id
+		JOIN patients pt ON pt.id = a.patient_id
+		JOIN users pu ON pu.id = pt.user_id
+		JOIN doctors doc ON doc.id = a.doctor_id
+		JOIN users du ON du.id = doc.user_id
 		WHERE a.doctor_id = $1
 		ORDER BY a.scheduled_at DESC
 	`

@@ -31,8 +31,17 @@ func NewAnalyticsHandler(
 	}
 }
 
-// GetDashboardSummary returns overall dashboard statistics
-// GET /api/analytics/dashboard
+// GetDashboardSummary godoc
+// @Summary      Dashboard summary
+// @Description  Retorna resumen con KPIs principales del sistema (solo admin)
+// @Tags         Analytics
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  analytics.DashboardSummary
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Router       /api/analytics/dashboard [get]
 func (h *AnalyticsHandler) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -49,8 +58,17 @@ func (h *AnalyticsHandler) GetDashboardSummary(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(summary)
 }
 
-// GetRevenueStats returns revenue statistics by service
-// GET /api/analytics/revenue
+// GetRevenueStats godoc
+// @Summary      Estadísticas de ingresos
+// @Description  Retorna ingresos agrupados por servicio (solo admin)
+// @Tags         Analytics
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   analytics.RevenueByService
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Router       /api/analytics/revenue [get]
 func (h *AnalyticsHandler) GetRevenueStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

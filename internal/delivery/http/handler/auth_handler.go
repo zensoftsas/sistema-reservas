@@ -20,10 +20,17 @@ func NewAuthHandler(loginUC *auth.LoginUseCase) *AuthHandler {
 	}
 }
 
-// Login handles the HTTP request for user authentication
-// Method: POST
-// Request body: JSON with email and password
-// Response: 200 OK with JWT token and user data, or 401 Unauthorized on error
+// Login godoc
+// @Summary      Login de usuario
+// @Description  Autenticar usuario y obtener token JWT
+// @Tags         Authentication
+// @Accept       json
+// @Produce      json
+// @Param        credentials  body      auth.LoginRequest  true  "Email y password"
+// @Success      200  {object}  auth.LoginResponse
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Router       /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
 	if r.Method != http.MethodPost {

@@ -68,10 +68,14 @@ func (h *ServiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// List handles the HTTP request for retrieving all active services
-// Method: GET
-// Requires: No authentication (public endpoint)
-// Response: 200 OK with array of services
+// ListServices godoc
+// @Summary      Listar servicios activos
+// @Description  Retorna todos los servicios médicos disponibles
+// @Tags         Services
+// @Accept       json
+// @Produce      json
+// @Success      200  {array}   domain.Service
+// @Router       /api/services [get]
 func (h *ServiceHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET
 	if r.Method != http.MethodGet {
@@ -174,7 +178,18 @@ func (h *ServiceHandler) GetDoctorsByService(w http.ResponseWriter, r *http.Requ
 	json.NewEncoder(w).Encode(doctors)
 }
 
-// GetAvailableSlots handles GET /api/services/available-slots (public)
+// GetAvailableSlots godoc
+// @Summary      Obtener horarios disponibles
+// @Description  Calcula y retorna los slots de tiempo disponibles para un doctor, servicio y fecha específicos
+// @Tags         Services
+// @Accept       json
+// @Produce      json
+// @Param        doctor_id   query     string  true  "ID del usuario doctor"
+// @Param        service_id  query     string  true  "ID del servicio"
+// @Param        date        query     string  true  "Fecha en formato YYYY-MM-DD"
+// @Success      200  {array}   service.TimeSlot
+// @Failure      400  {object}  map[string]string
+// @Router       /api/services/available-slots [get]
 func (h *ServiceHandler) GetAvailableSlots(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET
 	if r.Method != http.MethodGet {

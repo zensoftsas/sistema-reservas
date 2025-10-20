@@ -22,27 +22,55 @@ func NewSqliteUserRepository(db *sql.DB) repository.UserRepository {
 	}
 }
 
+// GetDB returns the database connection for transaction management
+func (r *SqliteUserRepository) GetDB() *sql.DB {
+	return r.db
+}
+
 // Create inserts a new user into the database
 func (r *SqliteUserRepository) Create(ctx context.Context, user *domain.User) error {
+	return r.CreateWithTx(ctx, nil, user)
+}
+
+// CreateWithTx inserts a new user using a transaction or database connection
+func (r *SqliteUserRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, user *domain.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, role, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		user.ID,
-		user.Email,
-		user.PasswordHash,
-		user.FirstName,
-		user.LastName,
-		user.Phone,
-		user.Role,
-		user.IsActive,
-		user.CreatedAt,
-		user.UpdatedAt,
-	)
+	var err error
+	if tx != nil {
+		_, err = tx.ExecContext(
+			ctx,
+			query,
+			user.ID,
+			user.Email,
+			user.PasswordHash,
+			user.FirstName,
+			user.LastName,
+			user.Phone,
+			user.Role,
+			user.IsActive,
+			user.CreatedAt,
+			user.UpdatedAt,
+		)
+	} else {
+		_, err = r.db.ExecContext(
+			ctx,
+			query,
+			user.ID,
+			user.Email,
+			user.PasswordHash,
+			user.FirstName,
+			user.LastName,
+			user.Phone,
+			user.Role,
+			user.IsActive,
+			user.CreatedAt,
+			user.UpdatedAt,
+		)
+	}
 
 	if err != nil {
 		return err
@@ -366,6 +394,22 @@ func (r *SqliteUserRepository) FindDoctorIDByUserID(ctx context.Context, userID 
 	}
 
 	return doctorID, nil
+}
+
+// FindPatientIDByUserID returns the patient.id for a given user_id
+func (r *SqliteUserRepository) FindPatientIDByUserID(ctx context.Context, userID string) (string, error) {
+	query := `SELECT id FROM patients WHERE user_id = $1`
+
+	var patientID string
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&patientID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", errors.New("patient not found")
+		}
+		return "", err
+	}
+
+	return patientID, nil
 }
 
 // CountByRole counts users by role

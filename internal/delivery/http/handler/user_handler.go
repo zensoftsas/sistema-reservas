@@ -37,10 +37,16 @@ func NewUserHandler(
 	}
 }
 
-// Create handles the HTTP request for creating a new user
-// Method: POST
-// Request body: JSON with user creation data
-// Response: 201 Created with user data (without password) or error
+// CreateUser godoc
+// @Summary      Crear usuario
+// @Description  Crear un nuevo usuario (admin, doctor o patient)
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Param        user  body      user.CreateUserRequest  true  "Datos del usuario"
+// @Success      201  {object}  domain.User
+// @Failure      400  {object}  map[string]string
+// @Router       /api/users [post]
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
 	if r.Method != http.MethodPost {
@@ -106,10 +112,16 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetMe handles the HTTP request for getting the authenticated user's profile
-// Method: GET
-// Requires: JWT token in Authorization header
-// Response: 200 OK with user data or 401 Unauthorized
+// GetProfile godoc
+// @Summary      Obtener perfil del usuario autenticado
+// @Description  Retorna información del usuario actual basado en el token JWT
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  domain.User
+// @Failure      401  {object}  map[string]string
+// @Router       /api/users/me [get]
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET
 	if r.Method != http.MethodGet {

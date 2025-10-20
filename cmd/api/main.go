@@ -21,6 +21,58 @@ import (
 	"version-1-0/pkg/config"
 )
 
+// @title           Sistema de Reservas - Clínica Internacional API
+// @version         1.0
+// @description     API completa para gestión de clínica médica con sistema de citas, servicios, horarios personalizados y analytics.
+// @description
+// @description     Características principales:
+// @description     - Autenticación JWT con roles (admin, doctor, patient)
+// @description     - Sistema de citas médicas con validaciones
+// @description     - Servicios médicos con precios y duraciones
+// @description     - Horarios personalizados por doctor
+// @description     - Cálculo dinámico de slots disponibles
+// @description     - Analytics y reportes para administradores
+// @description     - Notificaciones por email (SendGrid)
+// @description     - Recordatorios automáticos
+// @description
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   Zensoft Team
+// @contact.url    https://github.com/zensoftsas/sistema-reservas
+// @contact.email  zensoftsas@gmail.com
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// @tag.name Authentication
+// @tag.description Endpoints de autenticación y login
+
+// @tag.name Users
+// @tag.description Gestión de usuarios (admin, doctor, patient)
+
+// @tag.name Appointments
+// @tag.description Sistema de citas médicas
+
+// @tag.name Services
+// @tag.description Gestión de servicios/consultas médicas
+
+// @tag.name Schedules
+// @tag.description Horarios personalizados de doctores
+
+// @tag.name Analytics
+// @tag.description Reportes y estadísticas (solo admin)
+
+// @tag.name Doctors
+// @tag.description Búsqueda de doctores por especialidad
+
 func main() {
 	fmt.Println("🏥 Sistema de Reservas - Clínica Internacional - API Server")
 	fmt.Println("=============================================================\n")
@@ -43,6 +95,8 @@ func main() {
 
 	// Create repositories
 	userRepo := sqlite.NewSqliteUserRepository(db)
+	doctorRepo := sqlite.NewSqliteDoctorRepository(db)
+	patientRepo := sqlite.NewSqlitePatientRepository(db)
 	appointmentRepo := sqlite.NewSqliteAppointmentRepository(db)
 	serviceRepo := sqlite.NewSqliteServiceRepository(db)
 	doctorServiceRepo := sqlite.NewSqliteDoctorServiceRepository(db)
@@ -62,7 +116,7 @@ func main() {
 	reminderService.Start()
 
 	// Create use cases
-	createUserUC := user.NewCreateUserUseCase(userRepo)
+	createUserUC := user.NewCreateUserUseCase(userRepo, doctorRepo, patientRepo)
 	getUserUC := user.NewGetUserUseCase(userRepo)
 	listUsersUC := user.NewListUsersUseCase(userRepo)
 	updateUserUC := user.NewUpdateUserUseCase(userRepo)
@@ -70,8 +124,8 @@ func main() {
 
 	// Create appointment use cases
 	createAppointmentUC := appointment.NewCreateAppointmentUseCase(appointmentRepo, userRepo, serviceRepo, doctorServiceRepo, emailService)
-	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo)
-	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo)
+	getByPatientUC := appointment.NewGetAppointmentsByPatientUseCase(appointmentRepo, userRepo)
+	getByDoctorUC := appointment.NewGetAppointmentsByDoctorUseCase(appointmentRepo, userRepo)
 	cancelAppointmentUC := appointment.NewCancelAppointmentUseCase(appointmentRepo, userRepo, emailService)
 	confirmAppointmentUC := appointment.NewConfirmAppointmentUseCase(appointmentRepo, userRepo, emailService)
 	completeAppointmentUC := appointment.NewCompleteAppointmentUseCase(appointmentRepo, userRepo, emailService)
@@ -118,6 +172,7 @@ func main() {
 	fmt.Printf("🚀 Servidor HTTP iniciado en http://localhost:%s\n", cfg.ServerPort)
 	fmt.Println("📍 Endpoints disponibles:")
 	fmt.Println("   GET  /                      - Health check")
+	fmt.Println("   GET  /swagger/              - Swagger API Documentation")
 	fmt.Println("   POST /api/users             - Crear usuario")
 	fmt.Println("   GET  /api/users?id=<uuid>   - Obtener usuario por ID")
 	fmt.Println("   POST /api/auth/login        - Login (obtener token)")

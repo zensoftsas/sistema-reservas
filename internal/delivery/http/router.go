@@ -5,6 +5,9 @@ import (
 
 	"version-1-0/internal/delivery/http/handler"
 	"version-1-0/internal/delivery/http/middleware"
+
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "version-1-0/docs"
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
@@ -157,6 +160,11 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 	topServicesWithRole := middleware.RequireRole("admin")(topServicesHandler)
 	topServicesWithAuth := middleware.AuthMiddleware(jwtSecret)(topServicesWithRole)
 	mux.Handle("/api/analytics/top-services", topServicesWithAuth)
+
+	// Swagger documentation endpoint
+	mux.HandleFunc("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+	))
 
 	// Register health check route
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

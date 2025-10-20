@@ -42,11 +42,18 @@ func NewAppointmentHandler(
 	}
 }
 
-// Create handles the HTTP request for creating a new appointment
-// Method: POST
-// Requires: JWT token (patient creates their own appointment)
-// Request body: JSON with appointment creation data
-// Response: 201 Created with appointment data
+// CreateAppointment godoc
+// @Summary      Crear cita médica
+// @Description  Crear una nueva cita médica con validaciones de disponibilidad
+// @Tags         Appointments
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        appointment  body      appointment.CreateAppointmentRequest  true  "Datos de la cita"
+// @Success      201  {object}  domain.Appointment
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Router       /api/appointments [post]
 func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
 	if r.Method != http.MethodPost {
@@ -112,10 +119,16 @@ func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(appointmentCreated)
 }
 
-// GetMyAppointments handles the HTTP request for retrieving patient's own appointments
-// Method: GET
-// Requires: JWT token
-// Response: 200 OK with array of appointments
+// GetMyAppointments godoc
+// @Summary      Obtener mis citas
+// @Description  Retorna todas las citas del usuario autenticado
+// @Tags         Appointments
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   domain.Appointment
+// @Failure      401  {object}  map[string]string
+// @Router       /api/appointments/my [get]
 func (h *AppointmentHandler) GetMyAppointments(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET
 	if r.Method != http.MethodGet {

@@ -36,6 +36,9 @@ type UserRepository interface {
 	// FindDoctorIDByUserID returns the doctor.id for a given user_id
 	FindDoctorIDByUserID(ctx context.Context, userID string) (string, error)
 
+	// FindPatientIDByUserID returns the patient.id for a given user_id
+	FindPatientIDByUserID(ctx context.Context, userID string) (string, error)
+
 	// Analytics methods
 	// CountByRole counts users by role
 	CountByRole(ctx context.Context, role string) (int, error)
