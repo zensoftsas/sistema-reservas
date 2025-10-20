@@ -799,10 +799,19 @@ El frontend de este proyecto está en un repositorio separado:
 
 ---
 
-## 📚 Documentación Adicional
+## 📚 Documentación
 
-- **[BACKEND_REFERENCE.md](./BACKEND_REFERENCE.md)** - Referencia rápida de endpoints y configuración
+### Para el Equipo Frontend:
+- **[README_FRONTEND.md](./README_FRONTEND.md)** - ⭐ Empieza aquí (guía de archivos)
+- **[FRONTEND_API_REFERENCE.md](./FRONTEND_API_REFERENCE.md)** - ⭐ Referencia principal de la API
+- **[FRONTEND_INTEGRATION_GUIDE.md](./FRONTEND_INTEGRATION_GUIDE.md)** - Guía con componentes React completos
+- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Documentación exhaustiva de todos los endpoints
+
+### Para el Equipo Backend:
 - **[README.md](./README.md)** - Documentación principal (este archivo)
+
+### Swagger UI:
+- Disponible en: `http://localhost:8080/swagger/index.html` (cuando el servidor esté corriendo)
 
 ---
 

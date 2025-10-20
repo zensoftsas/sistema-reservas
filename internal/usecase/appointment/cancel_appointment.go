@@ -38,10 +38,30 @@ func (uc *CancelAppointmentUseCase) Execute(ctx context.Context, appointmentID s
 		return errors.New("appointment not found")
 	}
 
+	// Get real patient.id and doctor.id from authenticatedUserID
+	// authenticatedUserID is a user.id, but appointment stores patient.id and doctor.id
+	var realPatientID, realDoctorID string
+
+	// If user is patient, get their patient.id
+	if authenticatedUserRole == "patient" {
+		realPatientID, err = uc.userRepo.FindPatientIDByUserID(ctx, authenticatedUserID)
+		if err != nil {
+			return err
+		}
+	}
+
+	// If user is doctor, get their doctor.id
+	if authenticatedUserRole == "doctor" {
+		realDoctorID, err = uc.userRepo.FindDoctorIDByUserID(ctx, authenticatedUserID)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Verify permissions: only the patient, the doctor, or an admin can cancel
 	if authenticatedUserRole != "admin" &&
-		authenticatedUserID != appointment.PatientID &&
-		authenticatedUserID != appointment.DoctorID {
+		realPatientID != appointment.PatientID &&
+		realDoctorID != appointment.DoctorID {
 		return errors.New("insufficient permissions to cancel this appointment")
 	}
 
