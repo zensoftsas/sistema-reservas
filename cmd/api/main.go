@@ -75,7 +75,7 @@ import (
 
 func main() {
 	fmt.Println("🏥 Sistema de Reservas - Clínica Internacional - API Server")
-	fmt.Println("=============================================================\n")
+	fmt.Println("=============================================================")
 
 	// Load configuration
 	cfg := config.LoadConfig()
@@ -165,7 +165,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(getDashboardSummaryUC, getRevenueStatsUC, getTopDoctorsUC, getTopServicesUC)
 
 	// Configure router
-	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, scheduleHandler, analyticsHandler, cfg.JWTSecret)
+	router := httpDelivery.SetupRouter(userHandler, authHandler, appointmentHandler, doctorHandler, serviceHandler, scheduleHandler, analyticsHandler, cfg.JWTSecret, cfg.AllowedOrigins)
 
 	// Configure HTTP server
 	port := ":" + cfg.ServerPort
@@ -200,7 +200,7 @@ func main() {
 	fmt.Println("   GET    /api/analytics/revenue    - Estadísticas de ingresos (solo admin)")
 	fmt.Println("   GET    /api/analytics/top-doctors?limit=10 - Top doctores (solo admin)")
 	fmt.Println("   GET    /api/analytics/top-services?limit=10 - Top servicios (solo admin)")
-	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...\n")
+	fmt.Println("\n⏳ Presiona Ctrl+C para detener el servidor...")
 
 	// Start HTTP server
 	if err := http.ListenAndServe(port, router); err != nil {

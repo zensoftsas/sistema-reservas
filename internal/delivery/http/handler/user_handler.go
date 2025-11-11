@@ -43,9 +43,9 @@ func NewUserHandler(
 // @Tags         Users
 // @Accept       json
 // @Produce      json
-// @Param        user  body      user.CreateUserRequest  true  "Datos del usuario"
-// @Success      201  {object}  domain.User
-// @Failure      400  {object}  map[string]string
+// @Param        user  body      dto.CreateUserRequest  true  "Datos del usuario"
+// @Success      201  {object}  dto.UserResponse
+// @Failure      400  {object}  dto.ErrorResponse
 // @Router       /api/users [post]
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
@@ -119,8 +119,8 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  domain.User
-// @Failure      401  {object}  map[string]string
+// @Success      200  {object}  dto.UserResponse
+// @Failure      401  {object}  dto.ErrorResponse
 // @Router       /api/users/me [get]
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET

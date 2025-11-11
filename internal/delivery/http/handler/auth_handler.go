@@ -26,10 +26,10 @@ func NewAuthHandler(loginUC *auth.LoginUseCase) *AuthHandler {
 // @Tags         Authentication
 // @Accept       json
 // @Produce      json
-// @Param        credentials  body      auth.LoginRequest  true  "Email y password"
-// @Success      200  {object}  auth.LoginResponse
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
+// @Param        credentials  body      dto.LoginRequest  true  "Email y password"
+// @Success      200  {object}  dto.LoginResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
 // @Router       /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST

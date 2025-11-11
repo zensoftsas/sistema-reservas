@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"version-1-0/internal/domain"
@@ -581,4 +582,164 @@ func (r *SqliteAppointmentRepository) GetTopServices(ctx context.Context, limit 
 	}
 
 	return results, rows.Err()
+}
+
+// FindAllWithFilters retrieves all appointments with optional filters
+func (r *SqliteAppointmentRepository) FindAllWithFilters(ctx context.Context, filters repository.AppointmentFilters) ([]*domain.Appointment, error) {
+	query := `
+		SELECT
+			a.id,
+			a.patient_id,
+			a.doctor_id,
+			a.service_id,
+			a.scheduled_at,
+			a.duration,
+			a.reason,
+			a.notes,
+			a.status,
+			a.cancelled_at,
+			a.cancellation_reason,
+			a.reminder_24h_sent,
+			a.reminder_1h_sent,
+			a.created_at,
+			a.updated_at,
+			u_patient.first_name || ' ' || u_patient.last_name as patient_name,
+			u_doctor.first_name || ' ' || u_doctor.last_name as doctor_name,
+			s.name as service_name
+		FROM appointments a
+		LEFT JOIN patients p ON a.patient_id = p.id
+		LEFT JOIN users u_patient ON p.user_id = u_patient.id
+		LEFT JOIN doctors d ON a.doctor_id = d.id
+		LEFT JOIN users u_doctor ON d.user_id = u_doctor.id
+		LEFT JOIN services s ON a.service_id = s.id
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+	argIndex := 1
+
+	// Add filters dynamically
+	if filters.Status != "" {
+		query += " AND a.status = $" + fmt.Sprint(argIndex)
+		args = append(args, filters.Status)
+		argIndex++
+	}
+
+	if filters.DoctorID != "" {
+		query += " AND a.doctor_id = $" + fmt.Sprint(argIndex)
+		args = append(args, filters.DoctorID)
+		argIndex++
+	}
+
+	if filters.PatientID != "" {
+		query += " AND a.patient_id = $" + fmt.Sprint(argIndex)
+		args = append(args, filters.PatientID)
+		argIndex++
+	}
+
+	if filters.ServiceID != "" {
+		query += " AND a.service_id = $" + fmt.Sprint(argIndex)
+		args = append(args, filters.ServiceID)
+		argIndex++
+	}
+
+	if filters.DateFrom != nil {
+		query += " AND a.scheduled_at >= $" + fmt.Sprint(argIndex)
+		args = append(args, *filters.DateFrom)
+		argIndex++
+	}
+
+	if filters.DateTo != nil {
+		query += " AND a.scheduled_at <= $" + fmt.Sprint(argIndex)
+		args = append(args, *filters.DateTo)
+		argIndex++
+	}
+
+	query += " ORDER BY a.scheduled_at DESC"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var appointments []*domain.Appointment
+	for rows.Next() {
+		var a domain.Appointment
+		var cancelledAt, cancellationReason sql.NullString
+		var serviceID, patientName, doctorName, serviceName sql.NullString
+
+		err := rows.Scan(
+			&a.ID,
+			&a.PatientID,
+			&a.DoctorID,
+			&serviceID,
+			&a.ScheduledAt,
+			&a.Duration,
+			&a.Reason,
+			&a.Notes,
+			&a.Status,
+			&cancelledAt,
+			&cancellationReason,
+			&a.Reminder24hSent,
+			&a.Reminder1hSent,
+			&a.CreatedAt,
+			&a.UpdatedAt,
+			&patientName,
+			&doctorName,
+			&serviceName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if serviceID.Valid {
+			a.ServiceID = serviceID.String
+		}
+		if patientName.Valid {
+			a.PatientName = patientName.String
+		}
+		if doctorName.Valid {
+			a.DoctorName = doctorName.String
+		}
+		if serviceName.Valid {
+			a.ServiceName = serviceName.String
+		}
+		if cancelledAt.Valid {
+			// Parse the cancelled_at timestamp if needed
+			a.CancellationReason = cancellationReason.String
+		}
+
+		appointments = append(appointments, &a)
+	}
+
+	return appointments, rows.Err()
+}
+
+// CountFutureAppointmentsByDoctorAndService counts future appointments for a specific doctor-service combination
+func (r *SqliteAppointmentRepository) CountFutureAppointmentsByDoctorAndService(ctx context.Context, doctorID, serviceID string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM appointments
+		WHERE doctor_id = $1
+		AND service_id = $2
+		AND scheduled_at > $3
+		AND status != $4
+	`
+
+	var count int
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		doctorID,
+		serviceID,
+		time.Now(),
+		domain.StatusCancelled,
+	).Scan(&count)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

@@ -35,11 +35,18 @@ func NewServiceHandler(
 	}
 }
 
-// Create handles the HTTP request for creating a new service
-// Method: POST
-// Requires: Admin role
-// Request body: JSON with service creation data
-// Response: 201 Created with service data
+// CreateService godoc
+// @Summary      Crear servicio
+// @Description  Crear un nuevo servicio médico (solo admin)
+// @Tags         Services
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        service  body      dto.CreateServiceRequest  true  "Datos del servicio"
+// @Success      201  {object}  dto.ServiceResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Router       /api/services/create [post]
 func (h *ServiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
 	if r.Method != http.MethodPost {
@@ -74,7 +81,7 @@ func (h *ServiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Tags         Services
 // @Accept       json
 // @Produce      json
-// @Success      200  {array}   domain.Service
+// @Success      200  {array}   dto.ServiceResponse
 // @Router       /api/services [get]
 func (h *ServiceHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET
@@ -187,8 +194,8 @@ func (h *ServiceHandler) GetDoctorsByService(w http.ResponseWriter, r *http.Requ
 // @Param        doctor_id   query     string  true  "ID del usuario doctor"
 // @Param        service_id  query     string  true  "ID del servicio"
 // @Param        date        query     string  true  "Fecha en formato YYYY-MM-DD"
-// @Success      200  {array}   service.TimeSlot
-// @Failure      400  {object}  map[string]string
+// @Success      200  {array}   dto.TimeSlot
+// @Failure      400  {object}  dto.ErrorResponse
 // @Router       /api/services/available-slots [get]
 func (h *ServiceHandler) GetAvailableSlots(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET

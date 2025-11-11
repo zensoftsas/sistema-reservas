@@ -11,7 +11,7 @@ import (
 )
 
 // SetupRouter configures and returns the HTTP router with all application routes
-func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, scheduleHandler *handler.ScheduleHandler, analyticsHandler *handler.AnalyticsHandler, jwtSecret string) http.Handler {
+func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHandler, appointmentHandler *handler.AppointmentHandler, doctorHandler *handler.DoctorHandler, serviceHandler *handler.ServiceHandler, scheduleHandler *handler.ScheduleHandler, analyticsHandler *handler.AnalyticsHandler, jwtSecret string, allowedOrigins string) http.Handler {
 	// Create a new HTTP multiplexer
 	mux := http.NewServeMux()
 
@@ -174,7 +174,7 @@ func SetupRouter(userHandler *handler.UserHandler, authHandler *handler.AuthHand
 
 	// Apply middlewares in order: CORS -> Recovery -> Logging -> Handlers
 	// CORS middleware must be first to handle preflight requests
-	withCORS := middleware.CORSMiddleware(mux)
+	withCORS := middleware.CORSMiddleware(allowedOrigins)(mux)
 
 	// Recovery middleware wraps everything to catch panics
 	withRecovery := middleware.RecoveryMiddleware(withCORS)

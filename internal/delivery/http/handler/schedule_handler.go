@@ -37,7 +37,18 @@ type CreateScheduleRequest struct {
 	SlotDuration int    `json:"slot_duration"`
 }
 
-// CreateSchedule handles POST /api/schedules (admin only)
+// CreateSchedule godoc
+// @Summary      Crear horario de doctor
+// @Description  Crear horario personalizado para un doctor (solo admin)
+// @Tags         Schedules
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        schedule  body      dto.CreateScheduleRequest  true  "Datos del horario"
+// @Success      201  {object}  dto.ScheduleResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
+// @Router       /api/schedules [post]
 func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req CreateScheduleRequest
@@ -89,7 +100,16 @@ func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(schedule)
 }
 
-// GetDoctorSchedules handles GET /api/schedules/doctor/{id} (public)
+// GetDoctorSchedules godoc
+// @Summary      Obtener horarios de un doctor
+// @Description  Retorna todos los horarios configurados para un doctor
+// @Tags         Schedules
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "ID del doctor"
+// @Success      200  {array}   dto.ScheduleResponse
+// @Failure      404  {object}  dto.ErrorResponse
+// @Router       /api/schedules/doctor/{id} [get]
 func (h *ScheduleHandler) GetDoctorSchedules(w http.ResponseWriter, r *http.Request) {
 	// Get doctor ID from URL path
 	doctorID := r.PathValue("id")

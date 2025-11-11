@@ -49,10 +49,10 @@ func NewAppointmentHandler(
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        appointment  body      appointment.CreateAppointmentRequest  true  "Datos de la cita"
-// @Success      201  {object}  domain.Appointment
-// @Failure      400  {object}  map[string]string
-// @Failure      401  {object}  map[string]string
+// @Param        appointment  body      dto.CreateAppointmentRequest  true  "Datos de la cita"
+// @Success      201  {object}  dto.AppointmentResponse
+// @Failure      400  {object}  dto.ErrorResponse
+// @Failure      401  {object}  dto.ErrorResponse
 // @Router       /api/appointments [post]
 func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is POST
@@ -126,8 +126,8 @@ func (h *AppointmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   domain.Appointment
-// @Failure      401  {object}  map[string]string
+// @Success      200  {array}   dto.AppointmentResponse
+// @Failure      401  {object}  dto.ErrorResponse
 // @Router       /api/appointments/my [get]
 func (h *AppointmentHandler) GetMyAppointments(w http.ResponseWriter, r *http.Request) {
 	// Verify HTTP method is GET

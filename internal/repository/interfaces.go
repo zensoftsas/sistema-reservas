@@ -7,6 +7,16 @@ import (
 	"version-1-0/internal/domain"
 )
 
+// AppointmentFilters represents filters for querying appointments
+type AppointmentFilters struct {
+	Status    string
+	DoctorID  string
+	PatientID string
+	ServiceID string
+	DateFrom  *time.Time
+	DateTo    *time.Time
+}
+
 // UserRepository defines the interface for user data persistence operations
 type UserRepository interface {
 	// Create inserts a new user into the repository
@@ -157,6 +167,12 @@ type AppointmentRepository interface {
 		ServiceName string
 		Count       int
 	}, error)
+
+	// FindAllWithFilters retrieves all appointments with optional filters
+	FindAllWithFilters(ctx context.Context, filters AppointmentFilters) ([]*domain.Appointment, error)
+
+	// CountFutureAppointmentsByDoctorAndService counts future appointments for a doctor-service combination
+	CountFutureAppointmentsByDoctorAndService(ctx context.Context, doctorID, serviceID string) (int, error)
 }
 
 // ScheduleRepository defines methods for schedule data access

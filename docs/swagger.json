@@ -40,25 +40,19 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/analytics.DashboardSummary"
+                            "$ref": "#/definitions/dto.DashboardSummary"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -88,26 +82,112 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/analytics.RevenueByService"
+                                "$ref": "#/definitions/dto.RevenueByService"
                             }
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/analytics/top-doctors": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna ranking de doctores por cantidad de citas (solo admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Top doctores más solicitados",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Número de doctores a retornar",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.TopDoctor"
                             }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/analytics/top-services": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna ranking de servicios por demanda (solo admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Top servicios más populares",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Número de servicios a retornar",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.TopService"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -138,7 +218,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/appointment.CreateAppointmentRequest"
+                            "$ref": "#/definitions/dto.CreateAppointmentRequest"
                         }
                     }
                 ],
@@ -146,25 +226,19 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.Appointment"
+                            "$ref": "#/definitions/dto.AppointmentResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -194,17 +268,14 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Appointment"
+                                "$ref": "#/definitions/dto.AppointmentResponse"
                             }
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -230,7 +301,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginRequest"
+                            "$ref": "#/definitions/dto.LoginRequest"
                         }
                     }
                 ],
@@ -238,25 +309,111 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/dto.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/schedules": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crear horario personalizado para un doctor (solo admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Crear horario de doctor",
+                "parameters": [
+                    {
+                        "description": "Datos del horario",
+                        "name": "schedule",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateScheduleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ScheduleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/schedules/doctor/{id}": {
+            "get": {
+                "description": "Retorna todos los horarios configurados para un doctor",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Schedules"
+                ],
+                "summary": "Obtener horarios de un doctor",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID del doctor",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.ScheduleResponse"
                             }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -281,7 +438,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/domain.Service"
+                                "$ref": "#/definitions/dto.ServiceResponse"
                             }
                         }
                     }
@@ -330,17 +487,65 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/service.TimeSlot"
+                                "$ref": "#/definitions/dto.TimeSlot"
                             }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/services/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Crear un nuevo servicio médico (solo admin)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Services"
+                ],
+                "summary": "Crear servicio",
+                "parameters": [
+                    {
+                        "description": "Datos del servicio",
+                        "name": "service",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateServiceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -366,7 +571,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/user.CreateUserRequest"
+                            "$ref": "#/definitions/dto.CreateUserRequest"
                         }
                     }
                 ],
@@ -374,16 +579,13 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.User"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -411,16 +613,13 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.User"
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -428,11 +627,145 @@
         }
     },
     "definitions": {
-        "analytics.DashboardSummary": {
+        "dto.AppointmentResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "doctor_id": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "patient_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "scheduled_at": {
+                    "type": "string"
+                },
+                "service_id": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateAppointmentRequest": {
+            "type": "object",
+            "properties": {
+                "appointment_date": {
+                    "type": "string",
+                    "example": "2025-11-15"
+                },
+                "appointment_time": {
+                    "type": "string",
+                    "example": "10:00"
+                },
+                "doctor_id": {
+                    "type": "string",
+                    "example": "uuid"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "Consulta general"
+                },
+                "service_id": {
+                    "type": "string",
+                    "example": "uuid"
+                }
+            }
+        },
+        "dto.CreateScheduleRequest": {
+            "type": "object",
+            "properties": {
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TimeBlock"
+                    }
+                },
+                "day_of_week": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "doctor_id": {
+                    "type": "string",
+                    "example": "uuid"
+                }
+            }
+        },
+        "dto.CreateServiceRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Consulta médica general"
+                },
+                "duration_minutes": {
+                    "type": "integer",
+                    "example": 30
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Consulta General"
+                },
+                "price": {
+                    "type": "number",
+                    "example": 80
+                }
+            }
+        },
+        "dto.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "doctor@clinica.com"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "Juan"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Pérez"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "password123"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+593999999999"
+                },
+                "role": {
+                    "type": "string",
+                    "example": "doctor"
+                }
+            }
+        },
+        "dto.DashboardSummary": {
             "type": "object",
             "properties": {
                 "cancellation_rate": {
-                    "description": "Percentage",
                     "type": "number"
                 },
                 "cancelled_appointments": {
@@ -461,7 +794,43 @@
                 }
             }
         },
-        "analytics.RevenueByService": {
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string",
+                    "example": "Error message"
+                }
+            }
+        },
+        "dto.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "admin@clinica.com"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "admin123"
+                }
+            }
+        },
+        "dto.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.UserResponse"
+                }
+            }
+        },
+        "dto.RevenueByService": {
             "type": "object",
             "properties": {
                 "revenue": {
@@ -478,189 +847,115 @@
                 }
             }
         },
-        "appointment.CreateAppointmentRequest": {
+        "dto.ScheduleResponse": {
             "type": "object",
             "properties": {
-                "appointment_date": {
-                    "description": "Format: \"2006-01-02\" (YYYY-MM-DD)",
-                    "type": "string"
-                },
-                "appointment_time": {
-                    "description": "Format: \"15:04\" (HH:MM 24-hour)",
-                    "type": "string"
-                },
-                "doctor_id": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "service_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.LoginRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "expires_at": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "user": {
-                    "type": "object",
-                    "properties": {
-                        "email": {
-                            "type": "string"
-                        },
-                        "first_name": {
-                            "type": "string"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "last_name": {
-                            "type": "string"
-                        },
-                        "role": {
-                            "type": "string"
-                        }
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TimeBlock"
                     }
-                }
-            }
-        },
-        "domain.Appointment": {
-            "type": "object",
-            "properties": {
-                "cancellation_reason": {
-                    "type": "string"
-                },
-                "cancelled_at": {
-                    "type": "string"
                 },
                 "created_at": {
                     "type": "string"
                 },
+                "day_of_week": {
+                    "type": "integer"
+                },
                 "doctor_id": {
                     "type": "string"
                 },
-                "doctor_name": {
-                    "description": "Full name of doctor with \"Dr.\" prefix",
-                    "type": "string"
-                },
-                "duration": {
-                    "description": "in minutes",
-                    "type": "integer"
-                },
                 "id": {
-                    "type": "string"
-                },
-                "notes": {
-                    "type": "string"
-                },
-                "patient_id": {
-                    "type": "string"
-                },
-                "patient_name": {
-                    "description": "Full name of patient",
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "reminder_1h_sent": {
-                    "type": "boolean"
-                },
-                "reminder_24h_sent": {
-                    "type": "boolean"
-                },
-                "scheduled_at": {
-                    "type": "string"
-                },
-                "service_id": {
-                    "description": "Optional: Service associated with this appointment",
-                    "type": "string"
-                },
-                "service_name": {
-                    "description": "Name of the service",
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/domain.AppointmentStatus"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
         },
-        "domain.AppointmentStatus": {
-            "type": "string",
-            "enum": [
-                "pending",
-                "confirmed",
-                "cancelled",
-                "completed"
-            ],
-            "x-enum-varnames": [
-                "StatusPending",
-                "StatusConfirmed",
-                "StatusCancelled",
-                "StatusCompleted"
-            ]
-        },
-        "domain.Service": {
+        "dto.ServiceResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
                     "type": "string"
                 },
                 "description": {
-                    "description": "Detailed description of the service",
                     "type": "string"
                 },
                 "duration_minutes": {
-                    "description": "Duration of each appointment slot (e.g., 30, 45, 60 minutes)",
                     "type": "integer"
                 },
                 "id": {
                     "type": "string"
                 },
                 "is_active": {
-                    "description": "Whether the service is currently offered",
                     "type": "boolean"
                 },
                 "name": {
-                    "description": "e.g., \"Consulta Cardiológica\", \"Electrocardiograma\"",
                     "type": "string"
                 },
                 "price": {
-                    "description": "Price of the service",
                     "type": "number"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
-        "domain.User": {
+        "dto.TimeBlock": {
             "type": "object",
             "properties": {
-                "created_at": {
+                "end_time": {
+                    "type": "string",
+                    "example": "13:00"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "09:00"
+                }
+            }
+        },
+        "dto.TimeSlot": {
+            "type": "object",
+            "properties": {
+                "end_time": {
+                    "type": "string",
+                    "example": "09:30"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "09:00"
+                }
+            }
+        },
+        "dto.TopDoctor": {
+            "type": "object",
+            "properties": {
+                "completed_appointments": {
+                    "type": "integer"
+                },
+                "doctor_id": {
                     "type": "string"
                 },
+                "doctor_name": {
+                    "type": "string"
+                },
+                "total_appointments": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.TopService": {
+            "type": "object",
+            "properties": {
+                "service_id": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "total_citas": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UserResponse": {
+            "type": "object",
+            "properties": {
                 "email": {
                     "type": "string"
                 },
@@ -670,73 +965,7 @@
                 "id": {
                     "type": "string"
                 },
-                "is_active": {
-                    "type": "boolean"
-                },
                 "last_name": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "role": {
-                    "$ref": "#/definitions/domain.UserRole"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.UserRole": {
-            "type": "string",
-            "enum": [
-                "admin",
-                "doctor",
-                "patient"
-            ],
-            "x-enum-varnames": [
-                "RoleAdmin",
-                "RoleDoctor",
-                "RolePatient"
-            ]
-        },
-        "service.TimeSlot": {
-            "type": "object",
-            "properties": {
-                "available": {
-                    "type": "boolean"
-                },
-                "time": {
-                    "description": "HH:MM format",
-                    "type": "string"
-                }
-            }
-        },
-        "user.CreateUserRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "first_name",
-                "last_name",
-                "password",
-                "phone",
-                "role"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "first_name": {
-                    "type": "string"
-                },
-                "last_name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string",
-                    "minLength": 8
-                },
-                "phone": {
                     "type": "string"
                 },
                 "role": {

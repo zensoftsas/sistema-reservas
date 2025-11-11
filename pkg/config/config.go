@@ -17,6 +17,7 @@ type Config struct {
 	SendGridAPIKey    string
 	SendGridFromEmail string
 	SendGridFromName  string
+	AllowedOrigins    string
 }
 
 // LoadConfig loads configuration from environment variables and .env file
@@ -38,6 +39,9 @@ func LoadConfig() *Config {
 	sendGridFromEmail := getEnv("SENDGRID_FROM_EMAIL", "noreply@clinica.com")
 	sendGridFromName := getEnv("SENDGRID_FROM_NAME", "Clinica Internacional")
 
+	// CORS configuration
+	allowedOrigins := getEnv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8080,http://localhost:8081")
+
 	// Validate required configuration
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET is required in environment variables")
@@ -52,6 +56,7 @@ func LoadConfig() *Config {
 		SendGridAPIKey:    sendGridAPIKey,
 		SendGridFromEmail: sendGridFromEmail,
 		SendGridFromName:  sendGridFromName,
+		AllowedOrigins:    allowedOrigins,
 	}
 }
 

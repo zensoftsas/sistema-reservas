@@ -22,12 +22,13 @@ type CreateServiceResponse struct {
 }
 
 // UpdateServiceRequest represents the input data for updating a service
+// Uses pointers for optional fields
 type UpdateServiceRequest struct {
-	Name            string  `json:"name"`
-	Description     string  `json:"description"`
-	DurationMinutes int     `json:"duration_minutes"`
-	Price           float64 `json:"price"`
-	IsActive        bool    `json:"is_active"`
+	Name            *string  `json:"name,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	DurationMinutes *int     `json:"duration_minutes,omitempty"`
+	Price           *float64 `json:"price,omitempty"`
+	IsActive        *bool    `json:"is_active,omitempty"`
 }
 
 // ServiceResponse represents a service in responses

@@ -38,9 +38,9 @@ func NewAnalyticsHandler(
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  analytics.DashboardSummary
-// @Failure      401  {object}  map[string]string
-// @Failure      403  {object}  map[string]string
+// @Success      200  {object}  dto.DashboardSummary
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
 // @Router       /api/analytics/dashboard [get]
 func (h *AnalyticsHandler) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -65,9 +65,9 @@ func (h *AnalyticsHandler) GetDashboardSummary(w http.ResponseWriter, r *http.Re
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   analytics.RevenueByService
-// @Failure      401  {object}  map[string]string
-// @Failure      403  {object}  map[string]string
+// @Success      200  {array}   dto.RevenueByService
+// @Failure      401  {object}  dto.ErrorResponse
+// @Failure      403  {object}  dto.ErrorResponse
 // @Router       /api/analytics/revenue [get]
 func (h *AnalyticsHandler) GetRevenueStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -85,8 +85,17 @@ func (h *AnalyticsHandler) GetRevenueStats(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(stats)
 }
 
-// GetTopDoctors returns top doctors by appointment count
-// GET /api/analytics/top-doctors?limit=10
+// GetTopDoctors godoc
+// @Summary      Top doctores más solicitados
+// @Description  Retorna ranking de doctores por cantidad de citas (solo admin)
+// @Tags         Analytics
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit  query  int  false  "Número de doctores a retornar" default(10)
+// @Success      200  {array}   dto.TopDoctor
+// @Failure      401  {object}  dto.ErrorResponse
+// @Router       /api/analytics/top-doctors [get]
 func (h *AnalyticsHandler) GetTopDoctors(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -111,8 +120,17 @@ func (h *AnalyticsHandler) GetTopDoctors(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(doctors)
 }
 
-// GetTopServices returns top services by usage count
-// GET /api/analytics/top-services?limit=10
+// GetTopServices godoc
+// @Summary      Top servicios más populares
+// @Description  Retorna ranking de servicios por demanda (solo admin)
+// @Tags         Analytics
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        limit  query  int  false  "Número de servicios a retornar" default(10)
+// @Success      200  {array}   dto.TopService
+// @Failure      401  {object}  dto.ErrorResponse
+// @Router       /api/analytics/top-services [get]
 func (h *AnalyticsHandler) GetTopServices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

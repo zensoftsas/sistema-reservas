@@ -1,9 +1,102 @@
 basePath: /
 definitions:
-  analytics.DashboardSummary:
+  dto.AppointmentResponse:
+    properties:
+      created_at:
+        type: string
+      doctor_id:
+        type: string
+      duration:
+        type: integer
+      id:
+        type: string
+      notes:
+        type: string
+      patient_id:
+        type: string
+      reason:
+        type: string
+      scheduled_at:
+        type: string
+      service_id:
+        type: string
+      service_name:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.CreateAppointmentRequest:
+    properties:
+      appointment_date:
+        example: "2025-11-15"
+        type: string
+      appointment_time:
+        example: "10:00"
+        type: string
+      doctor_id:
+        example: uuid
+        type: string
+      reason:
+        example: Consulta general
+        type: string
+      service_id:
+        example: uuid
+        type: string
+    type: object
+  dto.CreateScheduleRequest:
+    properties:
+      blocks:
+        items:
+          $ref: '#/definitions/dto.TimeBlock'
+        type: array
+      day_of_week:
+        example: 1
+        type: integer
+      doctor_id:
+        example: uuid
+        type: string
+    type: object
+  dto.CreateServiceRequest:
+    properties:
+      description:
+        example: Consulta médica general
+        type: string
+      duration_minutes:
+        example: 30
+        type: integer
+      name:
+        example: Consulta General
+        type: string
+      price:
+        example: 80
+        type: number
+    type: object
+  dto.CreateUserRequest:
+    properties:
+      email:
+        example: doctor@clinica.com
+        type: string
+      first_name:
+        example: Juan
+        type: string
+      last_name:
+        example: Pérez
+        type: string
+      password:
+        example: password123
+        type: string
+      phone:
+        example: "+593999999999"
+        type: string
+      role:
+        example: doctor
+        type: string
+    type: object
+  dto.DashboardSummary:
     properties:
       cancellation_rate:
-        description: Percentage
         type: number
       cancelled_appointments:
         type: integer
@@ -22,7 +115,31 @@ definitions:
       total_revenue:
         type: number
     type: object
-  analytics.RevenueByService:
+  dto.ErrorResponse:
+    properties:
+      error:
+        example: Error message
+        type: string
+    type: object
+  dto.LoginRequest:
+    properties:
+      email:
+        example: admin@clinica.com
+        type: string
+      password:
+        example: admin123
+        type: string
+    type: object
+  dto.LoginResponse:
+    properties:
+      expires_at:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/dto.UserResponse'
+    type: object
+  dto.RevenueByService:
     properties:
       revenue:
         type: number
@@ -33,189 +150,88 @@ definitions:
       total_citas:
         type: integer
     type: object
-  appointment.CreateAppointmentRequest:
+  dto.ScheduleResponse:
     properties:
-      appointment_date:
-        description: 'Format: "2006-01-02" (YYYY-MM-DD)'
-        type: string
-      appointment_time:
-        description: 'Format: "15:04" (HH:MM 24-hour)'
-        type: string
-      doctor_id:
-        type: string
-      reason:
-        type: string
-      service_id:
-        type: string
-    type: object
-  auth.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    type: object
-  auth.LoginResponse:
-    properties:
-      expires_at:
-        type: string
-      token:
-        type: string
-      user:
-        properties:
-          email:
-            type: string
-          first_name:
-            type: string
-          id:
-            type: string
-          last_name:
-            type: string
-          role:
-            type: string
-        type: object
-    type: object
-  domain.Appointment:
-    properties:
-      cancellation_reason:
-        type: string
-      cancelled_at:
-        type: string
+      blocks:
+        items:
+          $ref: '#/definitions/dto.TimeBlock'
+        type: array
       created_at:
         type: string
+      day_of_week:
+        type: integer
       doctor_id:
         type: string
-      doctor_name:
-        description: Full name of doctor with "Dr." prefix
-        type: string
-      duration:
-        description: in minutes
-        type: integer
       id:
         type: string
-      notes:
-        type: string
-      patient_id:
-        type: string
-      patient_name:
-        description: Full name of patient
-        type: string
-      reason:
-        type: string
-      reminder_1h_sent:
-        type: boolean
-      reminder_24h_sent:
-        type: boolean
-      scheduled_at:
-        type: string
-      service_id:
-        description: 'Optional: Service associated with this appointment'
-        type: string
-      service_name:
-        description: Name of the service
-        type: string
-      status:
-        $ref: '#/definitions/domain.AppointmentStatus'
-      updated_at:
-        type: string
     type: object
-  domain.AppointmentStatus:
-    enum:
-    - pending
-    - confirmed
-    - cancelled
-    - completed
-    type: string
-    x-enum-varnames:
-    - StatusPending
-    - StatusConfirmed
-    - StatusCancelled
-    - StatusCompleted
-  domain.Service:
+  dto.ServiceResponse:
     properties:
       created_at:
         type: string
       description:
-        description: Detailed description of the service
         type: string
       duration_minutes:
-        description: Duration of each appointment slot (e.g., 30, 45, 60 minutes)
         type: integer
       id:
         type: string
       is_active:
-        description: Whether the service is currently offered
         type: boolean
       name:
-        description: e.g., "Consulta Cardiológica", "Electrocardiograma"
         type: string
       price:
-        description: Price of the service
         type: number
-      updated_at:
+    type: object
+  dto.TimeBlock:
+    properties:
+      end_time:
+        example: "13:00"
+        type: string
+      start_time:
+        example: "09:00"
         type: string
     type: object
-  domain.User:
+  dto.TimeSlot:
     properties:
-      created_at:
+      end_time:
+        example: "09:30"
         type: string
+      start_time:
+        example: "09:00"
+        type: string
+    type: object
+  dto.TopDoctor:
+    properties:
+      completed_appointments:
+        type: integer
+      doctor_id:
+        type: string
+      doctor_name:
+        type: string
+      total_appointments:
+        type: integer
+    type: object
+  dto.TopService:
+    properties:
+      service_id:
+        type: string
+      service_name:
+        type: string
+      total_citas:
+        type: integer
+    type: object
+  dto.UserResponse:
+    properties:
       email:
         type: string
       first_name:
         type: string
       id:
         type: string
-      is_active:
-        type: boolean
       last_name:
-        type: string
-      phone:
-        type: string
-      role:
-        $ref: '#/definitions/domain.UserRole'
-      updated_at:
-        type: string
-    type: object
-  domain.UserRole:
-    enum:
-    - admin
-    - doctor
-    - patient
-    type: string
-    x-enum-varnames:
-    - RoleAdmin
-    - RoleDoctor
-    - RolePatient
-  service.TimeSlot:
-    properties:
-      available:
-        type: boolean
-      time:
-        description: HH:MM format
-        type: string
-    type: object
-  user.CreateUserRequest:
-    properties:
-      email:
-        type: string
-      first_name:
-        type: string
-      last_name:
-        type: string
-      password:
-        minLength: 8
-        type: string
-      phone:
         type: string
       role:
         type: string
-    required:
-    - email
-    - first_name
-    - last_name
-    - password
-    - phone
-    - role
     type: object
 host: localhost:8080
 info:
@@ -253,19 +269,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/analytics.DashboardSummary'
+            $ref: '#/definitions/dto.DashboardSummary'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Dashboard summary
@@ -283,23 +295,77 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/analytics.RevenueByService'
+              $ref: '#/definitions/dto.RevenueByService'
             type: array
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Estadísticas de ingresos
+      tags:
+      - Analytics
+  /api/analytics/top-doctors:
+    get:
+      consumes:
+      - application/json
+      description: Retorna ranking de doctores por cantidad de citas (solo admin)
+      parameters:
+      - default: 10
+        description: Número de doctores a retornar
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TopDoctor'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Top doctores más solicitados
+      tags:
+      - Analytics
+  /api/analytics/top-services:
+    get:
+      consumes:
+      - application/json
+      description: Retorna ranking de servicios por demanda (solo admin)
+      parameters:
+      - default: 10
+        description: Número de servicios a retornar
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.TopService'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Top servicios más populares
       tags:
       - Analytics
   /api/appointments:
@@ -313,26 +379,22 @@ paths:
         name: appointment
         required: true
         schema:
-          $ref: '#/definitions/appointment.CreateAppointmentRequest'
+          $ref: '#/definitions/dto.CreateAppointmentRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/domain.Appointment'
+            $ref: '#/definitions/dto.AppointmentResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Crear cita médica
@@ -350,14 +412,12 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/domain.Appointment'
+              $ref: '#/definitions/dto.AppointmentResponse'
             type: array
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Obtener mis citas
@@ -374,29 +434,84 @@ paths:
         name: credentials
         required: true
         schema:
-          $ref: '#/definitions/auth.LoginRequest'
+          $ref: '#/definitions/dto.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.LoginResponse'
+            $ref: '#/definitions/dto.LoginResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Login de usuario
       tags:
       - Authentication
+  /api/schedules:
+    post:
+      consumes:
+      - application/json
+      description: Crear horario personalizado para un doctor (solo admin)
+      parameters:
+      - description: Datos del horario
+        in: body
+        name: schedule
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ScheduleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear horario de doctor
+      tags:
+      - Schedules
+  /api/schedules/doctor/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retorna todos los horarios configurados para un doctor
+      parameters:
+      - description: ID del doctor
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/dto.ScheduleResponse'
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Obtener horarios de un doctor
+      tags:
+      - Schedules
   /api/services:
     get:
       consumes:
@@ -409,7 +524,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/domain.Service'
+              $ref: '#/definitions/dto.ServiceResponse'
             type: array
       summary: Listar servicios activos
       tags:
@@ -443,15 +558,45 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/service.TimeSlot'
+              $ref: '#/definitions/dto.TimeSlot'
             type: array
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Obtener horarios disponibles
+      tags:
+      - Services
+  /api/services/create:
+    post:
+      consumes:
+      - application/json
+      description: Crear un nuevo servicio médico (solo admin)
+      parameters:
+      - description: Datos del servicio
+        in: body
+        name: service
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateServiceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ServiceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Crear servicio
       tags:
       - Services
   /api/users:
@@ -465,20 +610,18 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/user.CreateUserRequest'
+          $ref: '#/definitions/dto.CreateUserRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/domain.User'
+            $ref: '#/definitions/dto.UserResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       summary: Crear usuario
       tags:
       - Users
@@ -493,13 +636,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.User'
+            $ref: '#/definitions/dto.UserResponse'
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/dto.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Obtener perfil del usuario autenticado
